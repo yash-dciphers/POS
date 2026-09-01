@@ -40,6 +40,16 @@ export default async function SettingsPage() {
               <input className="input" name="pan" defaultValue={company?.pan} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3.5">
+            <div>
+              <label className="field-label">Contact email</label>
+              <input className="input" name="contact_email" type="email" defaultValue={company?.contact_email} />
+            </div>
+            <div>
+              <label className="field-label">Contact phone</label>
+              <input className="input" name="contact_phone" defaultValue={company?.contact_phone} />
+            </div>
+          </div>
           <div>
             <label className="field-label">Default GST rate (%)</label>
             <input className="input max-w-[120px]" name="default_gst_rate" type="number" defaultValue={company?.default_gst_rate} />
@@ -87,6 +97,16 @@ export default async function SettingsPage() {
               <div>
                 <div className="field-label mb-0.5">PAN</div>
                 {company?.pan}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3.5">
+              <div>
+                <div className="field-label mb-0.5">Contact email</div>
+                {company?.contact_email}
+              </div>
+              <div>
+                <div className="field-label mb-0.5">Contact phone</div>
+                {company?.contact_phone}
               </div>
             </div>
             <div>

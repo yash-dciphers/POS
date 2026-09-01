@@ -36,10 +36,20 @@ export const DEFAULT_LINE_ITEM_COLUMNS: StoredColumn[] = [
   { key: 'total', label: 'Total Price', fixed: true, computed: true },
 ];
 
+function parseJson(value: unknown) {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 // Older/edge-case POs (or ones created before this column was populated)
 // fall back to the default set rather than rendering an empty table.
 export function resolveColumns(stored: unknown): StoredColumn[] {
-  if (Array.isArray(stored) && stored.length > 0) return stored as StoredColumn[];
+  const parsed = parseJson(stored);
+  if (Array.isArray(parsed) && parsed.length > 0) return parsed as StoredColumn[];
   return DEFAULT_LINE_ITEM_COLUMNS;
 }
 
@@ -49,7 +59,8 @@ export function getLineItemValue(li: Record<string, any>, key: string): unknown 
   }
   const dbKey = DB_FIELD_MAP[key];
   if (dbKey) return li[dbKey];
-  return li.custom_fields ? li.custom_fields[key] : undefined;
+  const customFields = parseJson(li.custom_fields);
+  return customFields ? customFields[key] : undefined;
 }
 
 function formatDateShort(d: string | null | undefined): string {

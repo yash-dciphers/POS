@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db';
 import { requireUser } from '@/lib/auth/session';
 import { resolveColumns } from '@/lib/line-items';
+import { parseJsonValue } from '@/lib/json';
 import PoCreateForm, { type PoFormInitialValues } from './PoCreateForm';
 import type { LineItemRow } from '@/components/LineItemsEditor';
 
@@ -24,11 +25,18 @@ export default async function NewPoPage({ searchParams }: { searchParams: { clon
     `;
 
     if (source) {
+      const normalizedSource: any = {
+        ...source,
+        vendors: parseJsonValue(source.vendors, null),
+        ship_to_snapshot: parseJsonValue(source.ship_to_snapshot, null),
+        line_item_columns: parseJsonValue(source.line_item_columns, null),
+      };
       const sourceLineItems = await sql`
         select * from po_line_items where po_id = ${source.id} order by sort_order
       `;
 
       const lineItems: LineItemRow[] = (sourceLineItems ?? []).map((li: any) => ({
+        ...parseJsonValue(li.custom_fields, {}),
         description: li.description,
         partCode: li.part_code ?? undefined,
         qty: li.qty,
@@ -36,36 +44,35 @@ export default async function NewPoPage({ searchParams }: { searchParams: { clon
         total: li.total_price,
         term_start_date: li.term_start_date ?? undefined,
         term_end_date: li.term_end_date ?? undefined,
-        ...(li.custom_fields ?? {}),
       }));
 
       initialValues = {
-        category: source.series_prefix,
+        category: normalizedSource.series_prefix,
         poDate: new Date().toISOString().slice(0, 10), // today, not the original date
-        gstRate: Number(source.gst_rate),
-        vendor: source.vendors,
+        gstRate: Number(normalizedSource.gst_rate),
+        vendor: normalizedSource.vendors,
         quoteNumber: '', // a duplicate is a new transaction — the old quote almost certainly doesn't apply
         contactPerson: '',
         contactPhone: '',
-        shipSameAsBill: !source.ship_to_snapshot,
-        shipToDetails: source.ship_to_snapshot
+        shipSameAsBill: !normalizedSource.ship_to_snapshot,
+        shipToDetails: normalizedSource.ship_to_snapshot
           ? {
-              name: source.ship_to_snapshot.name ?? '',
-              address: source.ship_to_snapshot.address ?? '',
-              gstin: source.ship_to_snapshot.gstin ?? '',
-              pan: source.ship_to_snapshot.pan ?? '',
+              name: normalizedSource.ship_to_snapshot.name ?? '',
+              address: normalizedSource.ship_to_snapshot.address ?? '',
+              gstin: normalizedSource.ship_to_snapshot.gstin ?? '',
+              pan: normalizedSource.ship_to_snapshot.pan ?? '',
             }
           : undefined,
-        deliveryTimeline: source.delivery_timeline ?? '',
-        paymentTerms: source.payment_terms ?? '',
-        paymentTermsType: source.payment_terms_type ?? null,
-        paymentTermsDays: source.payment_terms_days ?? null,
-        termsAndConditions: source.terms_and_conditions ?? '',
+        deliveryTimeline: normalizedSource.delivery_timeline ?? '',
+        paymentTerms: normalizedSource.payment_terms ?? '',
+        paymentTermsType: normalizedSource.payment_terms_type ?? null,
+        paymentTermsDays: normalizedSource.payment_terms_days ?? null,
+        termsAndConditions: normalizedSource.terms_and_conditions ?? '',
         status: 'draft', // a duplicate starts as a draft, never auto-issued
         lineItems,
-        lineItemColumns: resolveColumns(source.line_item_columns),
+        lineItemColumns: resolveColumns(normalizedSource.line_item_columns),
       };
-      cloneNotice = `Duplicated from ${source.po_number} — review before saving. This will get its own new PO number.`;
+      cloneNotice = `Duplicated from ${normalizedSource.po_number} — review before saving. This will get its own new PO number.`;
     }
   }
 

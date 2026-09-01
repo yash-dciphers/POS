@@ -17,6 +17,8 @@ export async function updateCompany(formData: FormData) {
         address = ${String(formData.get('address') ?? '')},
         gstin = ${String(formData.get('gstin') ?? '')},
         pan = ${String(formData.get('pan') ?? '')},
+        contact_email = ${String(formData.get('contact_email') ?? '')},
+        contact_phone = ${String(formData.get('contact_phone') ?? '')},
         default_gst_rate = ${Number(formData.get('default_gst_rate'))},
         renewal_window_days = ${renewalWindowDays},
         renewal_urgent_days = ${Math.min(renewalUrgentDays, renewalWindowDays)},

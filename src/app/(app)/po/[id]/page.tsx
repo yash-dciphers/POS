@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { requireUser } from '@/lib/auth/session';
 import { resolveColumns, getLineItemValue, formatLineItemValue, NUMERIC_KEYS } from '@/lib/line-items';
+import { parseJsonValue } from '@/lib/json';
 import { formatPhone } from '@/lib/phone';
 import { approvePurchaseOrder } from './actions';
 import PrintButton from '@/components/PrintButton';
@@ -52,7 +53,8 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
     `,
   ]);
 
-  const po = poRows[0];
+  const po = normalizePo(poRows[0]);
+  const normalizedLineItems = lineItems.map(normalizeLineItem);
   const isAdmin = user.role === 'admin';
   if (!po) notFound();
   const isDeleted = Boolean(po.deleted_at);
@@ -225,7 +227,7 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
               </tr>
             </thead>
             <tbody>
-              {lineItems.map((li: any, rowIndex: number) => (
+              {normalizedLineItems.map((li: any, rowIndex: number) => (
                 <tr key={li.id} className={rowIndex % 2 === 1 ? 'bg-[#FBFBFC]' : ''}>
                   <td className="text-center">{rowIndex + 1}</td>
                   {columns.map((c, i) => (
@@ -315,6 +317,28 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
       )}
     </div>
   );
+}
+
+function normalizePo(po: any): any {
+  if (!po) return null;
+  return {
+    ...po,
+    vendors: parseJsonValue(po.vendors, null),
+    creator: parseJsonValue(po.creator, null),
+    approver: parseJsonValue(po.approver, null),
+    deleter: parseJsonValue(po.deleter, null),
+    rejecter: parseJsonValue(po.rejecter, null),
+    bill_to_snapshot: parseJsonValue(po.bill_to_snapshot, null),
+    ship_to_snapshot: parseJsonValue(po.ship_to_snapshot, null),
+    line_item_columns: parseJsonValue(po.line_item_columns, null),
+  };
+}
+
+function normalizeLineItem(lineItem: any) {
+  return {
+    ...lineItem,
+    custom_fields: parseJsonValue(lineItem.custom_fields, {}),
+  };
 }
 
 function fmt(n: number) {
