@@ -1,0 +1,252 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Colors — subtly warmer bg, slightly deeper navy, more consideration
+     for how these look layered together. The old palette read as flat;
+     these give the interface real depth without dulling it. */
+  --bg: #F4F6F9;
+  --bg-elevated: #FFFFFF;
+  --navy: #101B33;
+  --navy-light: #1B2A4A;
+  --navy-deeper: #0A1226;
+  --gold: #C9A227;
+  --gold-hover: #D6AE30;
+  --ink: #3A4F8A;
+  --text: #14171F;
+  --text-muted: #64707F;
+  --text-subtle: #8A94A2;
+  --border: #E3E6EC;
+  --border-strong: #CDD3DB;
+  --success: #187955;
+  --warn: #A8752E;
+  --danger: #B03B32;
+
+  /* Shadows — soft, layered, professional. Not "cheap card." */
+  --shadow-xs: 0 1px 2px rgba(16, 27, 51, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 27, 51, 0.06), 0 1px 2px rgba(16, 27, 51, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 27, 51, 0.06), 0 2px 4px rgba(16, 27, 51, 0.04);
+  --shadow-lg: 0 12px 32px rgba(16, 27, 51, 0.10), 0 4px 8px rgba(16, 27, 51, 0.05);
+  --shadow-focus: 0 0 0 3px rgba(58, 79, 138, 0.14);
+}
+
+body {
+  @apply bg-bg text-[color:var(--text)] font-sans;
+  font-feature-settings: 'ss01', 'ss02', 'cv01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  @apply font-display;
+  letter-spacing: -0.01em;
+}
+
+/* Native focus ring for a11y — subtle but present */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: 4px;
+}
+
+@layer components {
+  /* Cards — real depth, real hierarchy */
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-elevated {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Buttons — real feedback on press, smooth transitions */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-md;
+    transition: all 0.15s cubic-bezier(0.2, 0, 0, 1);
+    letter-spacing: -0.005em;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { transform: none !important; }
+  .btn-primary {
+    background: linear-gradient(180deg, var(--navy-light) 0%, var(--navy) 100%);
+    @apply text-white;
+    box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #253962 0%, var(--navy-light) 100%);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  }
+  .btn-primary:disabled { @apply opacity-50; }
+  .btn-gold {
+    background: linear-gradient(180deg, var(--gold-hover) 0%, var(--gold) 100%);
+    @apply text-navy;
+    box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+  }
+  .btn-gold:hover:not(:disabled) {
+    background: linear-gradient(180deg, #E0B93C 0%, var(--gold-hover) 100%);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  .btn-outline {
+    background: var(--bg-elevated);
+    @apply border border-border;
+    box-shadow: var(--shadow-xs);
+  }
+  .btn-outline:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    background: #FAFBFC;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Inputs — deeper, more refined focus */
+  .input {
+    @apply w-full rounded-md px-3 py-2 text-sm bg-white;
+    border: 1px solid var(--border);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input:hover:not(:focus) { border-color: var(--border-strong); }
+  .input:focus {
+    outline: none;
+    border-color: var(--ink);
+    box-shadow: var(--shadow-focus);
+  }
+  .field-label {
+    @apply block text-[11px] font-bold uppercase tracking-wide mb-1.5;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* Tables — proper density and refinement */
+  .ledger th {
+    @apply text-left text-[11px] uppercase font-bold px-3 py-2.5;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    background: linear-gradient(180deg, #FBFBFD 0%, #F6F7FA 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .ledger td {
+    @apply px-3 py-2.5 align-top text-sm;
+    border-bottom: 1px solid var(--border);
+  }
+  .ledger tbody tr:last-child td { border-bottom: none; }
+
+  /* Badges — pill-shaped, subtle depth */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold;
+    border: 1px solid transparent;
+    letter-spacing: 0.01em;
+  }
+  .badge-issued { @apply bg-[#E9F5EE] text-success border-success/20; }
+  .badge-draft { @apply bg-[#FBF2DF] text-warn border-warn/25; }
+  .badge-cancelled { @apply bg-[#FCE9E7] text-danger border-danger/25; }
+  .badge-pending_approval { @apply bg-[#EDF0F8] text-ink border-ink/25; }
+  .badge-admin { background: var(--navy); @apply text-white; }
+  .badge-user { @apply bg-[#EDEEF2] text-muted; }
+  .badge-dot { @apply w-[6px] h-[6px] rounded-full shrink-0; }
+  .badge-dot-issued { @apply bg-success; }
+  .badge-dot-draft { @apply bg-warn; }
+  .badge-dot-cancelled { @apply bg-danger; }
+  .badge-dot-pending_approval { @apply bg-ink; }
+
+  /* Hover states — subtle but tactile */
+  .row-hover {
+    transition: background-color 0.12s ease;
+  }
+  .row-hover:hover { background: #FAFBFC; }
+  .card-interactive {
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
+  }
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+@layer utilities {
+  /* Rich, considered animation set — timings tuned to feel snappy but
+     not rushed. Cubic-bezier curves rather than linear ease for real
+     polish. */
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -400% 0; }
+    100% { background-position: 400% 0; }
+  }
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .animate-slide-down { animation: slide-down 0.28s cubic-bezier(0.2, 0, 0, 1); }
+  .animate-slide-up { animation: slide-up 0.28s cubic-bezier(0.2, 0, 0, 1); }
+  .animate-scale-in { animation: scale-in 0.2s cubic-bezier(0.2, 0, 0, 1); }
+  .animate-fade-in { animation: fade-in 0.3s ease-out; }
+  .animate-fade-in-up { animation: fade-in-up 0.4s cubic-bezier(0.2, 0, 0, 1) both; }
+  .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+
+  /* Skeleton loading — for use in future async states */
+  .skeleton {
+    background: linear-gradient(90deg, #EEF0F3 0%, #F6F7F9 50%, #EEF0F3 100%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 4px;
+  }
+
+  /* Utility: subtle gradient overlay for hero areas */
+  .gradient-navy {
+    background: linear-gradient(135deg, var(--navy-deeper) 0%, var(--navy) 50%, var(--navy-light) 100%);
+  }
+
+  /* Utility: elegant divider */
+  .divider-fade {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--border) 20%, var(--border) 80%, transparent 100%);
+  }
+
+  /* Number formatting utility — tabular figures for aligned columns */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 767px) {
+    .card:has(.ledger) {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .ledger {
+      min-width: 720px;
+    }
+
+    .btn {
+      min-height: 40px;
+    }
+
+    .input,
+    select.input,
+    textarea.input {
+      font-size: 16px;
+    }
+  }
+}
