@@ -8,11 +8,17 @@ const SESSION_DAYS = 30;
 
 export interface CurrentUser {
   id: string;
+  // The app_sessions row backing this request. A fresh sign-in always means a
+  // new id, which is what lets the UI tell one login session from the next.
+  session_id: string;
   email: string;
   company_id: string;
   full_name: string;
   role: 'user' | 'admin';
   phone: string | null;
+  // True while the current password is one an Admin chose and emailed to
+  // them. Cleared as soon as they set their own.
+  password_set_by_admin: boolean;
 }
 
 function hashToken(token: string) {
@@ -62,11 +68,13 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     rows = await sql<CurrentUser[]>`
       select
         u.id,
+        s.id as session_id,
         u.email,
         p.company_id,
         p.full_name,
         p.role,
-        p.phone
+        p.phone,
+        u.password_set_by_admin
       from app_sessions s
       join app_users u on u.id = s.user_id
       join profiles p on p.id = u.id

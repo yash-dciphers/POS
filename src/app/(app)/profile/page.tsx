@@ -41,6 +41,23 @@ export default async function ProfilePage() {
           <SubmitButton className="btn btn-primary mt-3" pendingText="Saving...">Save</SubmitButton>
         </form>
         <div className="divider-fade my-4" />
+        <div>
+          <label className="field-label">Password</label>
+          {user.password_set_by_admin ? (
+            <div className="text-[11.5px] text-warn bg-[#F7EFE2] border border-warn/25 rounded-md px-3 py-2 mb-2.5 leading-relaxed">
+              Your current password was created by an Admin, so someone else has seen it.
+              Change it to something only you know.
+            </div>
+          ) : (
+            <div className="text-[11.5px] text-muted mb-2.5 leading-relaxed">
+              Change the password you use to sign in.
+            </div>
+          )}
+          <a href="/auth/set-password" className="btn btn-outline w-full sm:w-auto">
+            Change my password
+          </a>
+        </div>
+        <div className="divider-fade my-4" />
         <form action={logout}>
           <button type="submit" className="btn btn-outline text-danger w-full sm:w-auto">
             Logout

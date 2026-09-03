@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:schema": "node scripts/run-db-schema.mjs",
     "db:check": "node scripts/check-db-connection.mjs",
-    "db:admin": "node scripts/create-admin-user.mjs"
+    "db:admin": "node scripts/create-admin-user.mjs",
+    "email:check": "node scripts/check-email.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
