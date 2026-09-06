@@ -3,3 +3,5 @@ node_modules/
 .env.local
 .env.local.example
 DEVELOPER_GUIDE.md
+tsconfig.tsbuildinfo
+invite-email-changes.pdf

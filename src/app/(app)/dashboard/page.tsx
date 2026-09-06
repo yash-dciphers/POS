@@ -5,6 +5,7 @@ import StatCard from '@/components/StatCard';
 import Badge from '@/components/Badge';
 import RenewalAlerts, { type RenewalItem } from '@/components/RenewalAlerts';
 import PendingApprovalAlert, { type PendingApprovalItem } from '@/components/PendingApprovalAlert';
+import AdminPasswordReminder from '@/components/AdminPasswordReminder';
 import ExportExcelButton from '@/components/ExportExcelButton';
 import MonthlyPoChart, { type MonthlyDataPoint } from '@/components/MonthlyPoChart';
 
@@ -129,6 +130,7 @@ export default async function DashboardPage({
 
   return (
     <div>
+      {user.password_set_by_admin && <AdminPasswordReminder sessionId={user.session_id} />}
       {isAdmin && <PendingApprovalAlert items={pendingApprovalItems} />}
       <RenewalAlerts renewals={renewals} urgentThresholdDays={renewalUrgentDays} />
 

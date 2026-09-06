@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { setPassword } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 
@@ -18,11 +19,15 @@ export default function SetPasswordPage({ searchParams }: { searchParams: { erro
           D
         </div>
         <div className="relative z-10">
-          <div className="flex items-center gap-2.5 mb-12">
+          <Link
+            href="/dashboard"
+            aria-label="Back to dashboard"
+            className="flex items-center gap-2.5 mb-12 w-fit rounded transition hover:opacity-80"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="DCIPHERS logo" className="w-9 h-auto" />
             <div className="font-bold text-sm tracking-wide">DCIPHERS</div>
-          </div>
+          </Link>
           <h1 className="font-display text-2xl md:text-3xl leading-tight mb-3.5 max-w-[340px]">Welcome aboard.</h1>
           <p className="text-[13px] text-white/60 max-w-[320px] leading-relaxed">
             Set a password to finish setting up your account.

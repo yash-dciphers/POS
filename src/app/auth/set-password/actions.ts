@@ -18,9 +18,13 @@ export async function setPassword(formData: FormData) {
 
   const user = await requireUser();
 
+  // Clearing the flag alongside the hash is what stops the "change your
+  // password" prompt appearing — this is the moment the password stops
+  // being one an Admin chose.
   await sql`
     update app_users
-    set password_hash = ${await hashPassword(password)}
+    set password_hash = ${await hashPassword(password)},
+        password_set_by_admin = false
     where id = ${user.id}
   `;
 

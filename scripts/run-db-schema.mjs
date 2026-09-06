@@ -7,7 +7,7 @@ import postgres from 'postgres';
 dns.setDefaultResultOrder('ipv4first');
 
 const envPath = path.join(process.cwd(), '.env.local');
-const schemaPath = path.join(process.cwd(), 'db', 'migrations', '001_schema.sql');
+const migrationsDir = path.join(process.cwd(), 'db', 'migrations');
 
 const envText = await fs.readFile(envPath, 'utf8');
 const databaseUrlMatch = envText.match(/^DATABASE_URL=(?:"([^"]+)"|'([^']+)'|(.+))$/m);
@@ -17,7 +17,18 @@ if (!databaseUrl || databaseUrl.includes('ENTER_DATABASE_URL_HERE')) {
   throw new Error('DATABASE_URL is missing in .env.local');
 }
 
-const schema = await fs.readFile(schemaPath, 'utf8');
+// Every migration is applied in filename order, not just 001. There's no
+// "which migrations have run" table — each file is written to be safe to
+// re-run (create ... if not exists, on conflict do nothing), so applying the
+// whole set every time converges on the same result.
+const migrationFiles = (await fs.readdir(migrationsDir))
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
+
+if (migrationFiles.length === 0) {
+  throw new Error(`No .sql migrations found in ${migrationsDir}`);
+}
+
 const sql = postgres(databaseUrl, {
   ssl: getSslMode(databaseUrl),
   max: 1,
@@ -27,9 +38,15 @@ const sql = postgres(databaseUrl, {
 });
 
 try {
-  await sql.begin(async (tx) => {
-    await tx.unsafe(schema);
-  });
+  // One transaction per file, so a failure in a later migration leaves the
+  // earlier ones applied rather than rolling back the entire schema.
+  for (const fileName of migrationFiles) {
+    const migration = await fs.readFile(path.join(migrationsDir, fileName), 'utf8');
+    await sql.begin(async (tx) => {
+      await tx.unsafe(migration);
+    });
+    console.log(`  applied ${fileName}`);
+  }
 
   const [{ table_count: tableCount }] = await sql`
     select count(*)::int as table_count
@@ -53,7 +70,9 @@ try {
     select count(*)::int as company_count from companies
   `;
 
-  console.log(`Database schema applied. Tables ready: ${tableCount}/10. Companies: ${companyCount}.`);
+  console.log(
+    `Database schema applied. Migrations: ${migrationFiles.length}. Tables ready: ${tableCount}/10. Companies: ${companyCount}.`
+  );
 } finally {
   await sql.end();
 }
