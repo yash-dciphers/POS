@@ -25,6 +25,19 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
+function shouldUseSecureCookie() {
+  if (process.env.NODE_ENV !== 'production') return false;
+
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) return true;
+
+  try {
+    return new URL(appUrl).protocol === 'https:';
+  } catch {
+    return true;
+  }
+}
+
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString('base64url');
   const tokenHash = hashToken(token);
@@ -39,7 +52,7 @@ export async function createSession(userId: string) {
   cookies().set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: shouldUseSecureCookie(),
     path: '/',
     expires: expiresAt,
   });
@@ -53,7 +66,7 @@ export async function destroySession() {
   cookies().set(SESSION_COOKIE, '', {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: shouldUseSecureCookie(),
     path: '/',
     expires: new Date(0),
   });

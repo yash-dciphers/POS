@@ -11,8 +11,8 @@ import { redirect } from 'next/navigation';
 import { randomUUID } from 'crypto';
 
 function appUrl() {
-  const url = process.env.NEXT_PUBLIC_APP_URL;
-  if (!url) throw new Error('NEXT_PUBLIC_APP_URL is not set, so the sign-in link cannot be built.');
+  const url = process.env.APP_URL;
+  if (!url) throw new Error('APP_URL is not set, so the sign-in link cannot be built.');
   return url.replace(/\/+$/, '');
 }
 

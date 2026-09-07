@@ -45,7 +45,7 @@ function shell(bodyRows: string): string {
 </div>`.trim();
 }
 
-function credentialsBlock(email: string, password: string, appUrl: string): string {
+function credentialsBlock(email: string, password: string, appUrl: string, showSignIn = true): string {
   return `
     <tr>
       <td style="padding:0 28px;">
@@ -76,7 +76,9 @@ function credentialsBlock(email: string, password: string, appUrl: string): stri
         </table>
       </td>
     </tr>
-    <tr>
+    ${
+      showSignIn
+        ? `<tr>
       <td style="padding:22px 28px 6px;">
         <a href="${escapeHtml(appUrl)}/login"
            style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:600;padding:11px 22px;border-radius:6px;">
@@ -86,7 +88,9 @@ function credentialsBlock(email: string, password: string, appUrl: string): stri
           Or paste this into your browser: ${escapeHtml(appUrl)}/login
         </div>
       </td>
-    </tr>`;
+    </tr>`
+        : ''
+    }`;
 }
 
 export interface WelcomeEmailParams {
@@ -113,7 +117,7 @@ export function buildWelcomeEmail(params: WelcomeEmailParams): { subject: string
       </td>
     </tr>
     <tr><td style="height:18px;"></td></tr>
-    ${credentialsBlock(params.email, params.password, params.appUrl)}
+    ${credentialsBlock(params.email, params.password, params.appUrl, false)}
     <tr><td style="height:18px;"></td></tr>
   `);
 
@@ -145,4 +149,145 @@ export function buildPasswordResetEmail(params: PasswordResetEmailParams): { sub
   `);
 
   return { subject: 'Your DCIPHERS Purchase Order password was reset', html };
+}
+
+export interface PendingApprovalEmailParams {
+  adminName: string;
+  requesterName: string;
+  poNumber: string;
+  vendorName: string;
+  grandTotal: number;
+  currency: string;
+}
+
+export function buildPendingApprovalEmail(params: PendingApprovalEmailParams): { subject: string; html: string } {
+  const amount = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: params.currency,
+    maximumFractionDigits: 2,
+  }).format(params.grandTotal);
+
+  const html = shell(`
+    <tr>
+      <td style="padding:26px 28px 0;">
+        <div style="color:${TEXT};font-size:19px;font-weight:600;">Purchase order awaiting approval</div>
+        <div style="color:${MUTED};font-size:13.5px;line-height:1.65;margin-top:10px;">
+          Hello ${escapeHtml(params.adminName)} — ${escapeHtml(params.requesterName)} has submitted
+          <strong style="color:${TEXT};">${escapeHtml(params.poNumber)}</strong> for approval.
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:18px 28px 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${WASH};border:1px solid ${BORDER};border-radius:6px;">
+          <tr>
+            <td style="padding:16px 18px;">
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Vendor</div>
+              <div style="color:${TEXT};font-size:14px;margin-top:3px;">${escapeHtml(params.vendorName)}</div>
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:14px;">Total</div>
+              <div style="color:${TEXT};font-size:14px;margin-top:3px;">${escapeHtml(amount)}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr><td style="height:18px;"></td></tr>
+  `);
+
+  return { subject: `Approval needed: ${params.poNumber}`, html };
+}
+
+export interface ApprovedPoEmailParams {
+  requesterName: string;
+  approverName: string;
+  poNumber: string;
+  vendorName: string;
+  grandTotal: number;
+  currency: string;
+}
+
+export function buildApprovedPoEmail(params: ApprovedPoEmailParams): { subject: string; html: string } {
+  const amount = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: params.currency,
+    maximumFractionDigits: 2,
+  }).format(params.grandTotal);
+
+  const html = shell(`
+    <tr>
+      <td style="padding:26px 28px 0;">
+        <div style="color:${TEXT};font-size:19px;font-weight:600;">Purchase order approved</div>
+        <div style="color:${MUTED};font-size:13.5px;line-height:1.65;margin-top:10px;">
+          Hello ${escapeHtml(params.requesterName)} — ${escapeHtml(params.approverName)} has approved
+          <strong style="color:${TEXT};">${escapeHtml(params.poNumber)}</strong>.
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:18px 28px 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${WASH};border:1px solid ${BORDER};border-radius:6px;">
+          <tr>
+            <td style="padding:16px 18px;">
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Vendor</div>
+              <div style="color:${TEXT};font-size:14px;margin-top:3px;">${escapeHtml(params.vendorName)}</div>
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:14px;">Total</div>
+              <div style="color:${TEXT};font-size:14px;margin-top:3px;">${escapeHtml(amount)}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr><td style="height:18px;"></td></tr>
+  `);
+
+  return { subject: `Approved: ${params.poNumber}`, html };
+}
+
+export interface RejectedPoEmailParams {
+  requesterName: string;
+  approverName: string;
+  poNumber: string;
+  vendorName: string;
+  grandTotal: number;
+  currency: string;
+  reason: string;
+}
+
+export function buildRejectedPoEmail(params: RejectedPoEmailParams): { subject: string; html: string } {
+  const amount = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: params.currency,
+    maximumFractionDigits: 2,
+  }).format(params.grandTotal);
+
+  const html = shell(`
+    <tr>
+      <td style="padding:26px 28px 0;">
+        <div style="color:${TEXT};font-size:19px;font-weight:600;">Purchase order rejected</div>
+        <div style="color:${MUTED};font-size:13.5px;line-height:1.65;margin-top:10px;">
+          Hello ${escapeHtml(params.requesterName)} — ${escapeHtml(params.approverName)} has rejected
+          <strong style="color:${TEXT};">${escapeHtml(params.poNumber)}</strong>.
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:18px 28px 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${WASH};border:1px solid ${BORDER};border-radius:6px;">
+          <tr>
+            <td style="padding:16px 18px;">
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Vendor</div>
+              <div style="color:${TEXT};font-size:14px;margin-top:3px;">${escapeHtml(params.vendorName)}</div>
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:14px;">Total</div>
+              <div style="color:${TEXT};font-size:14px;margin-top:3px;">${escapeHtml(amount)}</div>
+              <div style="color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:14px;">Reason</div>
+              <div style="color:${TEXT};font-size:13px;line-height:1.6;margin-top:3px;">${escapeHtml(params.reason)}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr><td style="height:18px;"></td></tr>
+  `);
+
+  return { subject: `Rejected: ${params.poNumber}`, html };
 }

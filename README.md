@@ -12,9 +12,15 @@ app-owned email/password auth, and `@react-pdf/renderer` for PDF generation.
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=require"
+MS_TENANT_ID="ENTER_MICROSOFT_TENANT_ID_HERE"
+MS_CLIENT_ID="ENTER_MICROSOFT_CLIENT_ID_HERE"
+MS_CLIENT_SECRET="ENTER_MICROSOFT_CLIENT_SECRET_HERE"
+MAIL_FROM="DCIPHERS <sender@dciphers.com>"
+APP_URL="http://localhost:3000"
 ```
 
 Use `sslmode=disable` for local Docker Postgres.
+For production, set `APP_URL` to the deployed site URL and configure Microsoft Graph application permissions for the sender mailbox.
 
 4. Apply the schema:
 

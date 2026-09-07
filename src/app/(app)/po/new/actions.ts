@@ -5,6 +5,8 @@ import { requireUser } from '@/lib/auth/session';
 import { getNextPoNumber } from '@/lib/po-numbering';
 import { calculateTotals, lineTotal } from '@/lib/gst';
 import { numberToWordsIndian } from '@/lib/number-to-words';
+import { sendEmail } from '@/lib/email';
+import { buildPendingApprovalEmail } from '@/lib/email-templates';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
@@ -64,6 +66,11 @@ export async function createPurchaseOrder(input: CreatePoInput) {
     vendorId = newVendor.id;
   }
   if (!vendorId) throw new Error('A vendor is required');
+
+  const vendor = one(await sql<{ name: string }[]>`
+    select name from vendors where id = ${vendorId} and company_id = ${company.id} limit 1
+  `);
+  if (!vendor) throw new Error('Vendor not found');
 
   // Atomically reserve the next PO number for the chosen series/fiscal year.
   const poDate = new Date(input.poDate);
@@ -149,6 +156,35 @@ export async function createPurchaseOrder(input: CreatePoInput) {
       ${jsonb({ po_number: poNumber, grand_total: grandTotal, status: effectiveStatus })}::jsonb
     )
   `;
+
+  if (effectiveStatus === 'pending_approval') {
+    const admins = await sql<{ email: string; full_name: string }[]>`
+      select u.email, p.full_name
+      from profiles p
+      join app_users u on u.id = p.id
+      where p.company_id = ${company.id}
+        and p.role = 'admin'
+        and u.is_active = true
+    `;
+    await Promise.allSettled(
+      admins.map((admin) => {
+        const { subject, html } = buildPendingApprovalEmail({
+          adminName: admin.full_name,
+          requesterName: user.full_name,
+          poNumber,
+          vendorName: vendor.name,
+          grandTotal,
+          currency: 'INR',
+        });
+        return sendEmail({ to: admin.email, subject, html });
+      })
+    ).then((results) => {
+      const failed = results.filter((result) => result.status === 'rejected');
+      if (failed.length) {
+        console.error(`Pending approval email failed for ${failed.length}/${admins.length} admin(s)`, failed);
+      }
+    });
+  }
 
   revalidatePath('/dashboard');
   redirect(`/po/${poId}`);

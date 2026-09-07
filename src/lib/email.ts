@@ -3,8 +3,8 @@
 // mailbox in MAIL_FROM.
 //
 // Graph's sendMail takes a single body content type, so there's no plain-text
-// alternative alongside the HTML — messages are HTML only. That's fine for
-// internal mail; it would matter more for bulk sending to outside domains.
+// alternative alongside the HTML. That's fine for internal mail; it would
+// matter more for bulk sending to outside domains.
 
 export interface EmailMessage {
   to: string;
@@ -20,8 +20,10 @@ const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) throw new Error(`${key} is missing. Add it to .env.local (and to the Vercel environment variables in production).`);
+  const value = process.env[key]?.trim();
+  if (!value) {
+    throw new Error(`${key} is missing. Add it to .env.local and to the production environment variables.`);
+  }
   return value;
 }
 
