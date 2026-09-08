@@ -311,12 +311,6 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
                 </div>
               )}
             </div>
-            <div className="text-center w-[130px] flex flex-col items-center justify-end">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/stamp.png" alt="Company stamp and signature" className="w-[110px] h-auto mx-auto" />
-              <div className="text-[9px] font-bold mt-1.5">Authorized Signatory</div>
-              <div className="text-[8px] text-muted mt-0.5">DCIPHERS IT SOLUTIONS PVT. LTD.</div>
-            </div>
           </div>
 
           <div className="text-[8px] text-muted mt-6 pt-3 border-t border-border">
