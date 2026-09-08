@@ -82,7 +82,8 @@ export default async function DashboardPage({
   const issued = all.filter((p) => p.status === 'issued').length;
   const pendingApproval = all.filter((p) => p.status === 'pending_approval').length;
   const draft = all.filter((p) => p.status === 'draft').length;
-  const totalValue = all.reduce((sum, p) => sum + Number(p.subtotal), 0);
+  const calculatedPos = all.filter((p) => p.status === 'issued');
+  const totalValue = calculatedPos.reduce((sum, p) => sum + Number(p.subtotal), 0);
 
   // Built from `all` (already fetched above) — no new query needed. Only
   // ever shown to Admins, since only Admins can act on it.
@@ -135,7 +136,7 @@ export default async function DashboardPage({
       <RenewalAlerts renewals={renewals} urgentThresholdDays={renewalUrgentDays} />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5 mb-3.5">
-        <StatCard label="POs this FY" value={all.length} accent="navy" delay={0} href="/dashboard" />
+        <StatCard label="POs this FY" value={calculatedPos.length} accent="navy" delay={0} href="/dashboard" />
         <StatCard label="Total value (excl. GST)" value={totalValue} format="currency" accent="gold" delay={50} />
         <StatCard label="Issued" value={issued} accent="success" delay={100} href="/dashboard?status=issued" />
         <StatCard label="Pending Approval" value={pendingApproval} accent="ink" delay={150} href="/dashboard?status=pending_approval" />
