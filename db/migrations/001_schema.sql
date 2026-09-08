@@ -135,6 +135,7 @@ create table if not exists purchase_orders (
   status text not null default 'issued' check (status in ('draft', 'pending_approval', 'issued', 'cancelled')),
   created_by uuid references profiles(id) on delete set null,
   updated_by uuid references profiles(id) on delete set null,
+  requested_approver_id uuid references profiles(id) on delete set null,
   approved_by uuid references profiles(id) on delete set null,
   approved_at timestamptz,
   deleted_at timestamptz,
@@ -146,11 +147,15 @@ create table if not exists purchase_orders (
   updated_at timestamptz not null default now()
 );
 
+alter table purchase_orders
+  add column if not exists requested_approver_id uuid references profiles(id) on delete set null;
+
 create unique index if not exists purchase_orders_po_number_live_key on purchase_orders (po_number) where deleted_at is null;
 create index if not exists idx_po_company on purchase_orders(company_id);
 create index if not exists idx_po_vendor on purchase_orders(vendor_id);
 create index if not exists idx_po_created_at on purchase_orders(created_at desc);
 create index if not exists idx_po_status on purchase_orders(status);
+create index if not exists idx_po_requested_approver on purchase_orders(requested_approver_id);
 
 -- ----------------------------------------------------------------------------
 -- po_line_items

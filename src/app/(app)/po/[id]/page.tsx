@@ -26,12 +26,14 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
         p.*,
         to_jsonb(v.*) as vendors,
         case when creator.id is null then null else jsonb_build_object('full_name', creator.full_name, 'phone', creator.phone) end as creator,
+        case when requested_approver.id is null then null else jsonb_build_object('full_name', requested_approver.full_name) end as requested_approver,
         case when approver.id is null then null else jsonb_build_object('full_name', approver.full_name) end as approver,
         case when deleter.id is null then null else jsonb_build_object('full_name', deleter.full_name) end as deleter,
         case when rejecter.id is null then null else jsonb_build_object('full_name', rejecter.full_name) end as rejecter
       from purchase_orders p
       join vendors v on v.id = p.vendor_id
       left join profiles creator on creator.id = p.created_by
+      left join profiles requested_approver on requested_approver.id = p.requested_approver_id
       left join profiles approver on approver.id = p.approved_by
       left join profiles deleter on deleter.id = p.deleted_by
       left join profiles rejecter on rejecter.id = p.rejected_by
@@ -100,7 +102,11 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3 bg-[#EEF1FA] border border-navy/15 rounded-lg px-4 py-3 mb-3.5 print:hidden">
           <div className="text-[13px]">
             <span className="font-semibold">Admin approval pending.</span>{' '}
-            {isAdmin ? 'Any one Admin approving is enough to issue this PO.' : "You'll see this update once an Admin approves it."}
+            {po.requested_approver?.full_name
+              ? `Approval request sent to ${po.requested_approver.full_name}.`
+              : isAdmin
+              ? 'This PO is awaiting Admin approval.'
+              : "You'll see this update once an Admin approves it."}
           </div>
           {isAdmin && (
             <div className="flex items-center gap-2 shrink-0">
@@ -141,7 +147,22 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
         >
           D
         </div>
-        <div className="relative">
+        {po.status !== 'issued' && (
+          <div className="po-watermark-layer absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute left-8 right-8 top-16 bottom-16 grid -rotate-[34deg] grid-cols-3 content-between gap-x-8 print:left-10 print:right-10 print:top-20 print:bottom-20">
+              {Array.from({ length: 21 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="po-watermark-text whitespace-nowrap font-display text-[28px] font-medium uppercase leading-none print:text-[23px]"
+                  style={{ color: 'rgba(217, 92, 92, 0.2)' }}
+                >
+                  NOT APPROVED
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="relative z-10">
           {po.status !== 'issued' && (
             <div className="bg-[#F5E6E4] border border-danger rounded-md px-4 py-2.5 mb-4 text-center">
               <span className="text-danger font-bold text-xs uppercase tracking-wide">
@@ -190,7 +211,7 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
             {po.quote_number && <div className="text-muted mt-0.5">Quote #: {po.quote_number}</div>}
           </div>
 
-          <div className="grid grid-cols-2 gap-5 mb-4 text-xs">
+          <div className="mb-4 grid grid-cols-2 gap-5 text-xs">
             <div>
               <div className="font-bold uppercase tracking-wide text-[10.5px] text-muted mb-1">Bill To</div>
               <div className="font-semibold">{po.bill_to_snapshot?.name}</div>
@@ -214,7 +235,7 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          <div className="overflow-x-auto mb-3.5">
+          <div className="mb-3.5 overflow-x-auto">
           <table className="ledger w-full text-xs min-w-[700px]">
             <thead>
               <tr>
@@ -241,7 +262,7 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
           </table>
           </div>
 
-          <div className="flex justify-end mb-4">
+          <div className="mb-4 flex justify-end">
             <div className="w-60 text-xs">
               <div className="flex justify-between py-1">
                 <span>Subtotal</span>
@@ -258,7 +279,7 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          <div className="text-[11px] text-muted mb-5">Value in words: {po.amount_in_words}</div>
+          <div className="mb-5 text-[11px] text-muted">Value in words: {po.amount_in_words}</div>
 
           <div className="mb-5">
             <div className="font-bold uppercase tracking-wide text-[10.5px] text-muted mb-1.5">Terms &amp; Conditions</div>
@@ -274,7 +295,7 @@ export default async function PoDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          <div className="flex gap-6 pt-3 border-t border-border mb-5">
+          <div className="mb-5 flex gap-6 border-t border-border pt-3">
             <div className="flex-1 text-[11.5px] text-muted leading-relaxed">
               <div>Invoice to be raised on :</div>
               <div className="font-bold">DCIPHERS IT SOLUTIONS PVT. LTD.</div>
@@ -326,6 +347,7 @@ function normalizePo(po: any): any {
     vendors: parseJsonValue(po.vendors, null),
     creator: parseJsonValue(po.creator, null),
     approver: parseJsonValue(po.approver, null),
+    requested_approver: parseJsonValue(po.requested_approver, null),
     deleter: parseJsonValue(po.deleter, null),
     rejecter: parseJsonValue(po.rejecter, null),
     bill_to_snapshot: parseJsonValue(po.bill_to_snapshot, null),

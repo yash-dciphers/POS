@@ -9,7 +9,19 @@ export default async function NewPoPage({ searchParams }: { searchParams: { clon
   const user = await requireUser();
   const isAdmin = user.role === 'admin';
 
-  const [company] = await sql`select default_gst_rate from companies where id = ${user.company_id} limit 1`;
+  const [companyRows, admins] = await Promise.all([
+    sql<{ default_gst_rate: number }[]>`select default_gst_rate from companies where id = ${user.company_id} limit 1`,
+    sql<{ id: string; full_name: string; email: string }[]>`
+      select p.id, p.full_name, u.email
+      from profiles p
+      join app_users u on u.id = p.id
+      where p.company_id = ${user.company_id}
+        and p.role = 'admin'
+        and u.is_active = true
+      order by p.full_name, u.email
+    `,
+  ]);
+  const company = companyRows[0];
 
   let initialValues: PoFormInitialValues | undefined;
   let cloneNotice: string | null = null;
@@ -81,7 +93,7 @@ export default async function NewPoPage({ searchParams }: { searchParams: { clon
       {cloneNotice && (
         <div className="text-xs text-navy bg-[#EEF1FA] border border-navy/15 rounded-md px-3.5 py-2.5 mb-4">{cloneNotice}</div>
       )}
-      <PoCreateForm defaultGstRate={company?.default_gst_rate ?? 18} initialValues={initialValues} isAdmin={isAdmin} />
+      <PoCreateForm defaultGstRate={company?.default_gst_rate ?? 18} initialValues={initialValues} isAdmin={isAdmin} admins={admins} />
     </div>
   );
 }

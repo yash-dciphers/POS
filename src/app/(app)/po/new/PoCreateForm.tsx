@@ -10,6 +10,12 @@ import { createPurchaseOrder } from './actions';
 import type { Vendor } from '@/lib/types';
 import { Spinner } from '@/components/Skeleton';
 
+type ApprovalAdmin = {
+  id: string;
+  full_name: string;
+  email: string;
+};
+
 // An Indian GSTIN encodes the PAN inside it: 2-digit state code, then the
 // 10-character PAN, then a 3-character entity/checksum suffix. So the PAN
 // is always recoverable directly from a valid GSTIN — no need to ask twice.
@@ -47,6 +53,7 @@ export default function PoCreateForm({
   onSubmitEdit,
   existingPoNumber,
   isAdmin = false,
+  admins = [],
 }: {
   defaultGstRate: number;
   mode?: 'create' | 'edit';
@@ -55,6 +62,7 @@ export default function PoCreateForm({
   onSubmitEdit?: (payload: any) => Promise<void>;
   existingPoNumber?: string;
   isAdmin?: boolean;
+  admins?: ApprovalAdmin[];
 }) {
   const [category, setCategory] = useState<'PRH' | 'PRS'>(initialValues?.category ?? 'PRS');
   const [gstRate, setGstRate] = useState(initialValues?.gstRate ?? defaultGstRate);
@@ -128,6 +136,7 @@ export default function PoCreateForm({
   const [submitting, setSubmitting] = useState<'draft' | 'issued' | 'pending_approval' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [requestedApproverId, setRequestedApproverId] = useState(admins[0]?.id ?? '');
 
   // Non-admins can't issue a PO directly — it goes to any-one-Admin
   // approval instead. Admins skip this (no self-approval loop).
@@ -167,6 +176,7 @@ export default function PoCreateForm({
       })),
       lineItemColumns,
       status,
+      requestedApproverId: status === 'pending_approval' ? requestedApproverId : undefined,
     };
   }
 
@@ -177,6 +187,9 @@ export default function PoCreateForm({
     if (!shipSame && (!shipToName.trim() || !shipToAddress.trim())) return 'Enter a Ship To name and address, or check "same as Bill To".';
     if ((paymentTermsType === 'credit' || paymentTermsType === 'pdc') && !paymentTermsDays) {
       return 'Enter the number of days for Credit / PDC payment terms.';
+    }
+    if (!isAdmin && mode === 'create' && finalStatus === 'pending_approval' && !requestedApproverId) {
+      return 'Choose the Admin who should receive this approval request.';
     }
     return null;
   }
@@ -229,6 +242,7 @@ export default function PoCreateForm({
   }
 
   const effectiveVendorName = vendor?.name ?? newVendorName ?? '—';
+  const selectedApprovalAdmin = admins.find((admin) => admin.id === requestedApproverId);
 
   // Enter should submit, same as it would in a native <form> — but this
   // component's sticky sidebar and review modal live outside a single
@@ -550,35 +564,74 @@ export default function PoCreateForm({
       </div>
 
       <div className="sticky top-4">
-        <div className="card p-4.5">
-          <div className="text-[11px] uppercase tracking-wide text-muted font-bold mb-2.5">Live Summary</div>
-          <Row label="Subtotal" value={totals.subtotal} />
-          <Row label={`GST (${gstRate}%)`} value={totals.gstAmount} />
-          <Row label="Grand Total" value={totals.grandTotal} bold />
-          <div className="text-[11.5px] text-muted mt-1.5 leading-snug">{numberToWordsIndian(totals.grandTotal)}</div>
-          {error && <div className="text-xs text-danger bg-[#F5E6E4] rounded-md px-3 py-2 mt-3">{error}</div>}
-          <div className="mt-4 flex flex-col gap-2">
-            <button
-              className="btn btn-primary w-full justify-center"
-              disabled={submitting !== null}
-              onClick={handleOpenReview}
-            >
-              {submitting && submitting !== 'draft' && <Spinner className="w-3.5 h-3.5" />}
-              Review &amp; {mode === 'edit' ? 'Save Changes' : isAdmin ? 'Generate PO' : 'Submit for Approval'}
-            </button>
-            <button
-              className="btn btn-outline w-full justify-center"
-              disabled={submitting !== null}
-              onClick={handleSaveDraft}
-            >
-              {submitting === 'draft' && <Spinner className="w-3.5 h-3.5" />}
-              {submitting === 'draft' ? 'Saving...' : 'Save as Draft'}
-            </button>
+        <div className="card overflow-hidden">
+          <div className="border-b border-border bg-[#FAFBFC] px-5 py-4">
+            <div className="text-[11px] font-bold uppercase text-muted">Summary</div>
+            <div className="mt-1.5 truncate text-[13px] font-semibold text-navy">
+              {effectiveVendorName !== '—' ? effectiveVendorName : 'Vendor not selected'}
+            </div>
+          </div>
+
+          <div className="space-y-4 px-5 py-5">
+            <div className="rounded-md border border-border bg-white px-4 py-3.5 shadow-xs">
+              <Row label="Subtotal" value={totals.subtotal} />
+              <Row label={`GST (${gstRate}%)`} value={totals.gstAmount} />
+              <div className="mt-2.5 border-t border-border pt-3.5">
+                <div className="text-[11px] font-bold uppercase text-muted">Grand Total</div>
+                <div className="mt-1.5 font-mono text-[21px] font-bold leading-none text-navy">
+                  ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-md bg-[#F7F8FA] px-3.5 py-3 text-[11.5px] leading-relaxed text-muted">
+              {numberToWordsIndian(totals.grandTotal)}
+            </div>
+
+            {error && <div className="rounded-md border border-danger/20 bg-[#F5E6E4] px-3 py-2 text-xs text-danger">{error}</div>}
+
             {!isAdmin && mode === 'create' && (
-              <div className="text-[10.5px] text-muted text-center mt-0.5">
-                Any Admin approving is enough — you'll see the status update once they do.
+              <div className="rounded-md border border-border bg-[#FAFBFC] p-4">
+                <label className="field-label">Approval Route</label>
+                <select
+                  className="input bg-white"
+                  value={requestedApproverId}
+                  onChange={(e) => setRequestedApproverId(e.target.value)}
+                  disabled={submitting !== null}
+                >
+                  <option value="">Select Admin</option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.full_name} ({admin.email})
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 text-[11px] leading-snug text-muted">
+                  {selectedApprovalAdmin
+                    ? `Email will be sent only to ${selectedApprovalAdmin.full_name}.`
+                    : 'Choose the Admin who should receive this request.'}
+                </div>
               </div>
             )}
+
+            <div className="flex flex-col gap-2.5 border-t border-border pt-4">
+              <button
+                className="btn btn-primary min-h-11 w-full justify-center px-3 text-[13px]"
+                disabled={submitting !== null}
+                onClick={handleOpenReview}
+              >
+                {submitting && submitting !== 'draft' && <Spinner className="w-3.5 h-3.5" />}
+                {mode === 'edit' ? 'Review Changes' : isAdmin ? 'Review & Generate' : 'Review & Approval'}
+              </button>
+              <button
+                className="btn btn-outline min-h-11 w-full justify-center px-3 text-[13px]"
+                disabled={submitting !== null}
+                onClick={handleSaveDraft}
+              >
+                {submitting === 'draft' && <Spinner className="w-3.5 h-3.5" />}
+                {submitting === 'draft' ? 'Saving...' : 'Save as Draft'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -635,6 +688,12 @@ export default function PoCreateForm({
                 <Row label={`GST (${gstRate}%)`} value={totals.gstAmount} />
                 <Row label="Grand Total" value={totals.grandTotal} bold />
               </div>
+              {!isAdmin && mode === 'create' && (
+                <div>
+                  <div className="field-label mb-0.5">Approval Admin</div>
+                  <div>{admins.find((admin) => admin.id === requestedApproverId)?.full_name ?? '—'}</div>
+                </div>
+              )}
               <div>
                 <div className="field-label mb-0.5">Payment Terms</div>
                 <div>{paymentTerms || '—'}</div>
@@ -675,9 +734,9 @@ export default function PoCreateForm({
 
 function Row({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
   return (
-    <div className={`flex justify-between py-1.5 text-sm ${bold ? 'font-bold text-[14.5px] pt-2.5' : 'border-b border-border'}`}>
+    <div className={`flex items-center justify-between py-1.5 text-[12.5px] ${bold ? 'font-bold text-navy' : 'text-muted'}`}>
       <span>{label}</span>
-      <span className="font-mono">₹{value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+      <span className="font-mono text-[13px] text-text">₹{value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
     </div>
   );
 }

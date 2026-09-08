@@ -249,4 +249,17 @@ h1, h2, h3 {
       font-size: 16px;
     }
   }
+
+  @media print {
+    .po-watermark-layer {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 0 !important;
+    }
+
+    .po-watermark-text {
+      color: rgba(217, 92, 92, 0.14) !important;
+      font-weight: 500 !important;
+    }
+  }
 }

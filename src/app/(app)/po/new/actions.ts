@@ -39,6 +39,7 @@ export interface CreatePoInput {
   lineItems: CreatePoLineItem[];
   lineItemColumns: unknown[];
   status: 'draft' | 'issued' | 'pending_approval';
+  requestedApproverId?: string;
 }
 
 export async function createPurchaseOrder(input: CreatePoInput) {
@@ -71,6 +72,24 @@ export async function createPurchaseOrder(input: CreatePoInput) {
     select name from vendors where id = ${vendorId} and company_id = ${company.id} limit 1
   `);
   if (!vendor) throw new Error('Vendor not found');
+
+  let requestedApprover: { id: string; email: string; full_name: string } | null = null;
+  if (effectiveStatus === 'pending_approval') {
+    if (!input.requestedApproverId) {
+      throw new Error('Choose the Admin who should receive this approval request.');
+    }
+    requestedApprover = one(await sql<{ id: string; email: string; full_name: string }[]>`
+      select p.id, u.email, p.full_name
+      from profiles p
+      join app_users u on u.id = p.id
+      where p.id = ${input.requestedApproverId}
+        and p.company_id = ${company.id}
+        and p.role = 'admin'
+        and u.is_active = true
+      limit 1
+    `);
+    if (!requestedApprover) throw new Error('Selected approval Admin is no longer available.');
+  }
 
   // Atomically reserve the next PO number for the chosen series/fiscal year.
   const poDate = new Date(input.poDate);
@@ -124,7 +143,7 @@ export async function createPurchaseOrder(input: CreatePoInput) {
       quote_number, vendor_contact_person, vendor_contact_phone, bill_to_snapshot, ship_to_snapshot,
       currency, gst_rate, subtotal, gst_amount, grand_total, amount_in_words,
       delivery_timeline, payment_terms, payment_terms_type, payment_terms_days,
-      service_validity, terms_and_conditions, line_item_columns, status, created_by, updated_by
+      service_validity, terms_and_conditions, line_item_columns, status, requested_approver_id, created_by, updated_by
     )
     values (
       ${poId}, ${company.id}, ${poNumber}, ${input.category}, ${fiscalYear}, ${input.poDate}, ${vendorId},
@@ -132,7 +151,8 @@ export async function createPurchaseOrder(input: CreatePoInput) {
       ${jsonb(billToSnapshot)}::jsonb, ${shipToSnapshot ? jsonb(shipToSnapshot) : null}::jsonb,
       'INR', ${input.gstRate}, ${subtotal}, ${gstAmount}, ${grandTotal}, ${amountInWords},
       ${input.deliveryTimeline}, ${input.paymentTerms}, ${input.paymentTermsType ?? null}, ${input.paymentTermsDays ?? null},
-      'As per principal', ${input.termsAndConditions}, ${jsonb(input.lineItemColumns as any)}::jsonb, ${effectiveStatus}, ${user.id}, ${user.id}
+      'As per principal', ${input.termsAndConditions}, ${jsonb(input.lineItemColumns as any)}::jsonb,
+      ${effectiveStatus}, ${requestedApprover?.id ?? null}, ${user.id}, ${user.id}
     )
   `;
   for (const row of rows) {
@@ -158,31 +178,16 @@ export async function createPurchaseOrder(input: CreatePoInput) {
   `;
 
   if (effectiveStatus === 'pending_approval') {
-    const admins = await sql<{ email: string; full_name: string }[]>`
-      select u.email, p.full_name
-      from profiles p
-      join app_users u on u.id = p.id
-      where p.company_id = ${company.id}
-        and p.role = 'admin'
-        and u.is_active = true
-    `;
-    await Promise.allSettled(
-      admins.map((admin) => {
-        const { subject, html } = buildPendingApprovalEmail({
-          adminName: admin.full_name,
-          requesterName: user.full_name,
-          poNumber,
-          vendorName: vendor.name,
-          grandTotal,
-          currency: 'INR',
-        });
-        return sendEmail({ to: admin.email, subject, html });
-      })
-    ).then((results) => {
-      const failed = results.filter((result) => result.status === 'rejected');
-      if (failed.length) {
-        console.error(`Pending approval email failed for ${failed.length}/${admins.length} admin(s)`, failed);
-      }
+    const { subject, html } = buildPendingApprovalEmail({
+      adminName: requestedApprover!.full_name,
+      requesterName: user.full_name,
+      poNumber,
+      vendorName: vendor.name,
+      grandTotal,
+      currency: 'INR',
+    });
+    await sendEmail({ to: requestedApprover!.email, subject, html }).catch((error) => {
+      console.error(`Pending approval email failed for selected admin ${requestedApprover!.id}`, error);
     });
   }
 

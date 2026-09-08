@@ -130,18 +130,20 @@ const styles = StyleSheet.create({
 
   watermark: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     zIndex: 0,
   },
   watermarkText: {
-    fontSize: 54,
+    position: 'absolute',
+    fontSize: 22,
     fontFamily: 'NotoSans',
-    fontWeight: 'bold',
-    color: '#E8CFCF',
-    transform: 'rotate(-35deg)',
-    opacity: 0.45,
+    fontWeight: 'normal',
+    color: '#D95C5C',
+    opacity: 0.2,
+    transform: 'rotate(-34deg)',
   },
   statusBanner: {
     backgroundColor: '#F5E6E4',
@@ -384,22 +386,29 @@ function PartyBlock({ label, party, fallback }: { label: string; party: Party | 
   );
 }
 
+const WATERMARK_TILES = Array.from({ length: 7 }, (_, rowIndex) =>
+  [58, 226, 394].map((left) => ({ left, top: 76 + rowIndex * 102 }))
+).flat();
+
 export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf; lineItems: LineItemForPdf[] }) {
   const columns: StoredColumn[] = resolveColumns(po.line_item_columns);
   const widths = computeColumnWidths(columns, lineItems);
   const tablePageCount = estimateTablePageCount(lineItems, columns, widths);
+  const isApproved = po.status === 'issued';
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {po.status !== 'issued' && (
+        {!isApproved && (
           <View style={styles.watermark} fixed>
-            <Text style={styles.watermarkText}>
-              {po.status === 'pending_approval' ? 'PENDING APPROVAL' : po.status === 'draft' ? 'DRAFT' : po.status?.toUpperCase()}
-            </Text>
+            {WATERMARK_TILES.map((tile, index) => (
+              <Text key={index} style={[styles.watermarkText, tile]}>
+                NOT APPROVED
+              </Text>
+            ))}
           </View>
         )}
-        {po.status !== 'issued' && (
+        {!isApproved && (
           <View style={styles.statusBanner} fixed>
             <Text style={styles.statusBannerText}>
               {po.status === 'pending_approval'
