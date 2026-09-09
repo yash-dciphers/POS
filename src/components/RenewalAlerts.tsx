@@ -15,17 +15,23 @@ export interface RenewalItem {
 
 
 
-export default function RenewalAlerts({ renewals, urgentThresholdDays = 30 }: { renewals: RenewalItem[]; urgentThresholdDays?: number }) {
+export default function RenewalAlerts({
+  renewals,
+  urgentThresholdDays = 30,
+  renewalWindowDays = 90,
+}: {
+  renewals: RenewalItem[];
+  urgentThresholdDays?: number;
+  renewalWindowDays?: number;
+}) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const count = renewals.length;
   const urgent = renewals.filter((r) => r.daysRemaining <= urgentThresholdDays);
   // The banner is the proactive, no-click-needed alert — it only appears at
-  // all when something falls within the 90-day window (i.e. whenever
-  // `renewals` is non-empty, since that's already filtered to 90 days
-  // server-side), but its tone and headline emphasize whatever's within 30
-  // days, since that's the actionable-soon subset.
+  // all when something falls within the configured renewal window, but its
+  // tone and headline emphasize whatever's within the urgent threshold.
   const showBanner = count > 0 && !bannerDismissed;
 
   return (
@@ -54,12 +60,12 @@ export default function RenewalAlerts({ renewals, urgentThresholdDays = 30 }: { 
             <span className="text-[13px] font-medium">
               {urgent.length > 0 ? (
                 <>
-                  <strong>{urgent.length}</strong> renewal{urgent.length === 1 ? '' : 's'} due within 30 days
-                  {count > urgent.length ? ` (${count} total in the next 90 days)` : ''}.
+                  <strong>{urgent.length}</strong> renewal{urgent.length === 1 ? '' : 's'} due within {urgentThresholdDays} days
+                  {count > urgent.length ? ` (${count} total in the next ${renewalWindowDays} days)` : ''}.
                 </>
               ) : (
                 <>
-                  <strong>{count}</strong> renewal{count === 1 ? '' : 's'} coming up in the next 90 days.
+                  <strong>{count}</strong> renewal{count === 1 ? '' : 's'} coming up in the next {renewalWindowDays} days.
                 </>
               )}
             </span>
@@ -109,10 +115,10 @@ export default function RenewalAlerts({ renewals, urgentThresholdDays = 30 }: { 
           <div className="absolute right-0 top-11 z-50 w-80 max-h-96 overflow-y-auto card shadow-lg animate-scale-in">
             <div className="px-4 py-3 border-b border-border">
               <div className="font-display text-sm">Upcoming Renewals</div>
-              <div className="text-[11px] text-muted">Next 90 days, issued POs only</div>
+              <div className="text-[11px] text-muted">Next {renewalWindowDays} days, issued POs only</div>
             </div>
             {renewals.length === 0 ? (
-              <div className="text-center text-muted text-xs py-8 px-4">Nothing renewing in the next 90 days.</div>
+              <div className="text-center text-muted text-xs py-8 px-4">Nothing renewing in the next {renewalWindowDays} days.</div>
             ) : (
               <div>
                 {renewals.map((r) => (

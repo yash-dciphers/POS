@@ -11,6 +11,13 @@ export interface LineItemColumn {
 }
 export type LineItemRow = Record<string, string | number | undefined>;
 
+function toInputValue(value: unknown): string | number {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string' || typeof value === 'number') return value;
+  return String(value);
+}
+
 const DEFAULT_COLUMNS: LineItemColumn[] = [
   { key: 'description', label: 'Description', fixed: true },
   { key: 'partCode', label: 'Part Code' },
@@ -145,14 +152,14 @@ export default function LineItemsEditor({
                         <input
                           className="border-0 bg-transparent text-sm p-1 focus:outline-none focus:bg-bg rounded w-[124px]"
                           type="date"
-                          value={(r.term_start_date as string) ?? ''}
+                          value={toInputValue(r.term_start_date)}
                           onChange={(e) => updateDateRangeCell(ri, 'term_start_date', e.target.value)}
                         />
                         <span className="text-muted text-xs">–</span>
                         <input
                           className="border-0 bg-transparent text-sm p-1 focus:outline-none focus:bg-bg rounded w-[124px]"
                           type="date"
-                          value={(r.term_end_date as string) ?? ''}
+                          value={toInputValue(r.term_end_date)}
                           onChange={(e) => updateDateRangeCell(ri, 'term_end_date', e.target.value)}
                         />
                       </div>
@@ -160,7 +167,7 @@ export default function LineItemsEditor({
                       <input
                         className="border-0 bg-transparent w-full text-sm p-1 focus:outline-none focus:bg-bg rounded"
                         type={c.type === 'number' ? 'number' : 'text'}
-                        value={r[c.key] ?? ''}
+                        value={toInputValue(r[c.key])}
                         onChange={(e) => updateCell(ri, c.key, e.target.value)}
                       />
                     )}

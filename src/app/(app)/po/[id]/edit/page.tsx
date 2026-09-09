@@ -6,6 +6,12 @@ import { parseJsonValue } from '@/lib/json';
 import EditPoForm from './EditPoForm';
 import type { LineItemRow } from '@/components/LineItemsEditor';
 
+function toDateInputValue(value: unknown): string {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 export default async function EditPoPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
   if (user.role !== 'admin') redirect(`/po/${params.id}`);
@@ -45,8 +51,8 @@ export default async function EditPoPage({ params }: { params: { id: string } })
     qty: li.qty,
     unitPrice: li.unit_price,
     total: li.total_price,
-    term_start_date: li.term_start_date ?? undefined,
-    term_end_date: li.term_end_date ?? undefined,
+    term_start_date: toDateInputValue(li.term_start_date) || undefined,
+    term_end_date: toDateInputValue(li.term_end_date) || undefined,
   }));
 
   return (
@@ -60,7 +66,7 @@ export default async function EditPoPage({ params }: { params: { id: string } })
         existingPoNumber={normalizedPo.po_number}
         initialValues={{
           category: normalizedPo.series_prefix,
-          poDate: normalizedPo.po_date,
+          poDate: toDateInputValue(normalizedPo.po_date),
           gstRate: Number(normalizedPo.gst_rate),
           vendor: normalizedPo.vendors,
           quoteNumber: normalizedPo.quote_number ?? '',

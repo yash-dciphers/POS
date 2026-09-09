@@ -25,6 +25,12 @@ function panFromGstin(gstin: string): string | null {
   return clean.slice(2, 12);
 }
 
+function toDateInputValue(value: unknown): string {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 export interface PoFormInitialValues {
   category: 'PRH' | 'PRS';
   poDate: string;
@@ -106,7 +112,7 @@ export default function PoCreateForm({
   const [contactPhone, setContactPhone] = useState(initialValues?.contactPhone ?? '');
   const [poNumberMode, setPoNumberMode] = useState<'keep' | 'generate' | 'custom'>('keep');
   const [customPoNumber, setCustomPoNumber] = useState('');
-  const [poDate, setPoDate] = useState(initialValues?.poDate ?? new Date().toISOString().slice(0, 10));
+  const [poDate, setPoDate] = useState(toDateInputValue(initialValues?.poDate) || new Date().toISOString().slice(0, 10));
   const [shipSame, setShipSame] = useState(initialValues?.shipSameAsBill ?? true);
   const [shipToName, setShipToName] = useState(initialValues?.shipToDetails?.name ?? '');
   const [shipToAddress, setShipToAddress] = useState(initialValues?.shipToDetails?.address ?? '');
@@ -166,14 +172,19 @@ export default function PoCreateForm({
       paymentTermsType: paymentTermsType || undefined,
       paymentTermsDays: paymentTermsType === 'credit' || paymentTermsType === 'pdc' ? Number(paymentTermsDays) || undefined : undefined,
       termsAndConditions: terms,
-      lineItems: lineItems.map((li) => ({
-        description: String(li.description ?? ''),
-        partCode: li.partCode ? String(li.partCode) : undefined,
-        qty: Number(li.qty) || 0,
-        unitPrice: Number(li.unitPrice) || 0,
-        total: Number(li.total) || 0,
-        ...li,
-      })),
+      lineItems: lineItems.map((li) => {
+        const { description, partCode, qty, unitPrice, total, term_start_date, term_end_date, ...custom } = li;
+        return {
+          ...custom,
+          description: String(description ?? ''),
+          partCode: partCode ? String(partCode) : undefined,
+          qty: Number(qty) || 0,
+          unitPrice: Number(unitPrice) || 0,
+          total: Number(total) || 0,
+          term_start_date: toDateInputValue(term_start_date) || undefined,
+          term_end_date: toDateInputValue(term_end_date) || undefined,
+        };
+      }),
       lineItemColumns,
       status,
       requestedApproverId: status === 'pending_approval' ? requestedApproverId : undefined,

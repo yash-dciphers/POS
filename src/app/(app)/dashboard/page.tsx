@@ -8,6 +8,7 @@ import PendingApprovalAlert, { type PendingApprovalItem } from '@/components/Pen
 import AdminPasswordReminder from '@/components/AdminPasswordReminder';
 import ExportExcelButton from '@/components/ExportExcelButton';
 import MonthlyPoChart, { type MonthlyDataPoint } from '@/components/MonthlyPoChart';
+import { notifyAdminsOfUrgentRenewals } from '@/lib/renewal-notifications';
 
 export default async function DashboardPage({
   searchParams,
@@ -111,6 +112,16 @@ export default async function DashboardPage({
       };
     });
 
+  try {
+    await notifyAdminsOfUrgentRenewals({
+      companyId: user.company_id,
+      urgentThresholdDays: renewalUrgentDays,
+      renewals,
+    });
+  } catch (error) {
+    console.error('Urgent renewal notification failed', error);
+  }
+
   // Last 6 months, oldest to newest, counting issued POs by po_date. Built
   // from `all` (already fetched above) rather than a separate query.
   const monthlyData: MonthlyDataPoint[] = Array.from({ length: 6 }).map((_, i) => {
@@ -133,7 +144,7 @@ export default async function DashboardPage({
     <div>
       {user.password_set_by_admin && <AdminPasswordReminder sessionId={user.session_id} />}
       {isAdmin && <PendingApprovalAlert items={pendingApprovalItems} />}
-      <RenewalAlerts renewals={renewals} urgentThresholdDays={renewalUrgentDays} />
+      <RenewalAlerts renewals={renewals} urgentThresholdDays={renewalUrgentDays} renewalWindowDays={renewalWindowDays} />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5 mb-3.5">
         <StatCard label="POs this FY" value={calculatedPos.length} accent="navy" delay={0} href="/dashboard" />

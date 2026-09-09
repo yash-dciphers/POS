@@ -192,6 +192,22 @@ create table if not exists po_audit_log (
 create index if not exists idx_audit_po on po_audit_log(po_id);
 
 -- ----------------------------------------------------------------------------
+-- renewal_alert_notifications
+-- ----------------------------------------------------------------------------
+create table if not exists renewal_alert_notifications (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  line_item_id uuid not null references po_line_items(id) on delete cascade,
+  alert_type text not null default 'urgent' check (alert_type in ('urgent')),
+  threshold_days integer not null,
+  sent_at timestamptz not null default now(),
+  unique (line_item_id, alert_type)
+);
+
+create index if not exists idx_renewal_alert_notifications_company
+  on renewal_alert_notifications(company_id, sent_at desc);
+
+-- ----------------------------------------------------------------------------
 -- po_payments
 -- ----------------------------------------------------------------------------
 create table if not exists po_payments (

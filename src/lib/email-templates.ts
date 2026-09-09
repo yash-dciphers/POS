@@ -291,3 +291,70 @@ export function buildRejectedPoEmail(params: RejectedPoEmailParams): { subject: 
 
   return { subject: `Rejected: ${params.poNumber}`, html };
 }
+
+export interface UrgentRenewalEmailItem {
+  poNumber: string;
+  vendorName: string;
+  description: string;
+  termEndDate: string;
+  daysRemaining: number;
+}
+
+export interface UrgentRenewalEmailParams {
+  adminName: string;
+  thresholdDays: number;
+  renewals: UrgentRenewalEmailItem[];
+}
+
+export function buildUrgentRenewalEmail(params: UrgentRenewalEmailParams): { subject: string; html: string } {
+  const rows = params.renewals
+    .map((renewal) => {
+      const dueLabel = renewal.daysRemaining <= 0 ? 'Due today' : `${renewal.daysRemaining} days left`;
+      return `
+        <tr>
+          <td style="padding:12px 10px;border-top:1px solid ${BORDER};color:${TEXT};font-size:12.5px;font-weight:600;">
+            ${escapeHtml(renewal.poNumber)}
+            <div style="color:${MUTED};font-size:11.5px;font-weight:400;margin-top:3px;">${escapeHtml(renewal.vendorName)}</div>
+          </td>
+          <td style="padding:12px 10px;border-top:1px solid ${BORDER};color:${TEXT};font-size:12.5px;line-height:1.45;">
+            ${escapeHtml(renewal.description)}
+          </td>
+          <td style="padding:12px 10px;border-top:1px solid ${BORDER};color:${TEXT};font-size:12.5px;white-space:nowrap;">
+            ${escapeHtml(new Date(renewal.termEndDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}
+            <div style="color:#B03B32;font-size:11.5px;font-weight:600;margin-top:3px;">${escapeHtml(dueLabel)}</div>
+          </td>
+        </tr>`;
+    })
+    .join('');
+
+  const html = shell(`
+    <tr>
+      <td style="padding:26px 28px 0;">
+        <div style="color:${TEXT};font-size:19px;font-weight:600;">Urgent renewal attention required</div>
+        <div style="color:${MUTED};font-size:13.5px;line-height:1.65;margin-top:10px;">
+          Hello ${escapeHtml(params.adminName)} — the following renewal${params.renewals.length === 1 ? ' is' : 's are'}
+          within the configured urgent threshold of
+          <strong style="color:${TEXT};">${params.thresholdDays} days</strong>.
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:18px 28px 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${WASH};border:1px solid ${BORDER};border-radius:6px;border-collapse:separate;">
+          <tr>
+            <td style="padding:10px;color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;">PO / Vendor</td>
+            <td style="padding:10px;color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Item</td>
+            <td style="padding:10px;color:${MUTED};font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Renewal Date</td>
+          </tr>
+          ${rows}
+        </table>
+      </td>
+    </tr>
+    <tr><td style="height:18px;"></td></tr>
+  `);
+
+  return {
+    subject: `Urgent renewal alert: ${params.renewals.length} item${params.renewals.length === 1 ? '' : 's'}`,
+    html,
+  };
+}

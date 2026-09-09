@@ -1,9 +1,13 @@
 import { sql } from '@/lib/db';
 import { requireUser } from '@/lib/auth/session';
-import { updateCompany } from './actions';
+import { sendUrgentRenewalAlertsNow, updateCompany } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams?: { saved?: string; error?: string; renewal_test?: string; urgent?: string; queued?: string; admins?: string; sent?: string };
+}) {
   const user = await requireUser();
   const isAdmin = user.role === 'admin';
 
@@ -18,61 +22,89 @@ export default async function SettingsPage() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {isAdmin ? (
-        <form action={updateCompany} className="card p-5 space-y-3.5">
-          <h2 className="font-display text-[15px] mb-1">Company Profile</h2>
-          <div className="h-0.5 w-9 bg-gold rounded mb-1" />
-          <input type="hidden" name="id" value={company?.id ?? ''} />
-          <div>
-            <label className="field-label">Legal name</label>
-            <input className="input" name="name" defaultValue={company?.name} />
-          </div>
-          <div>
-            <label className="field-label">Registered address</label>
-            <textarea className="input" name="address" defaultValue={company?.address} />
-          </div>
-          <div className="grid grid-cols-2 gap-3.5">
+        <div className="space-y-4">
+          <form action={updateCompany} className="card p-5 space-y-3.5">
+            <h2 className="font-display text-[15px] mb-1">Company Profile</h2>
+            <div className="h-0.5 w-9 bg-gold rounded mb-1" />
+            {searchParams?.saved === '1' && (
+              <div className="rounded-md border border-success/20 bg-[#E9F5EE] px-3 py-2 text-xs font-medium text-success">
+                Company settings saved successfully.
+              </div>
+            )}
+            {searchParams?.error === 'not_saved' && (
+              <div className="rounded-md border border-danger/20 bg-[#F5E6E4] px-3 py-2 text-xs font-medium text-danger">
+                Company settings could not be saved. Refresh and try again.
+              </div>
+            )}
+            <input type="hidden" name="id" value={company?.id ?? ''} />
             <div>
-              <label className="field-label">GSTIN</label>
-              <input className="input" name="gstin" defaultValue={company?.gstin} />
+              <label className="field-label">Legal name</label>
+              <input className="input" name="name" defaultValue={company?.name} />
             </div>
             <div>
-              <label className="field-label">PAN</label>
-              <input className="input" name="pan" defaultValue={company?.pan} />
+              <label className="field-label">Registered address</label>
+              <textarea className="input" name="address" defaultValue={company?.address} />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-2 gap-3.5">
+              <div>
+                <label className="field-label">GSTIN</label>
+                <input className="input" name="gstin" defaultValue={company?.gstin} />
+              </div>
+              <div>
+                <label className="field-label">PAN</label>
+                <input className="input" name="pan" defaultValue={company?.pan} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3.5">
+              <div>
+                <label className="field-label">Contact email</label>
+                <input className="input" name="contact_email" type="email" defaultValue={company?.contact_email} />
+              </div>
+              <div>
+                <label className="field-label">Contact phone</label>
+                <input className="input" name="contact_phone" defaultValue={company?.contact_phone} />
+              </div>
+            </div>
             <div>
-              <label className="field-label">Contact email</label>
-              <input className="input" name="contact_email" type="email" defaultValue={company?.contact_email} />
+              <label className="field-label">Default GST rate (%)</label>
+              <input className="input max-w-[120px]" name="default_gst_rate" type="number" defaultValue={company?.default_gst_rate} />
+            </div>
+            <div className="grid grid-cols-2 gap-3.5">
+              <div>
+                <label className="field-label">Renewal alert window (days)</label>
+                <input className="input" name="renewal_window_days" type="number" min={1} defaultValue={company?.renewal_window_days ?? 90} />
+                <div className="text-[10.5px] text-muted mt-1">How far ahead the dashboard flags upcoming renewals.</div>
+              </div>
+              <div>
+                <label className="field-label">Urgent threshold (days)</label>
+                <input className="input" name="renewal_urgent_days" type="number" min={1} defaultValue={company?.renewal_urgent_days ?? 30} />
+                <div className="text-[10.5px] text-muted mt-1">Within this many days, the alert turns red instead of amber.</div>
+              </div>
             </div>
             <div>
-              <label className="field-label">Contact phone</label>
-              <input className="input" name="contact_phone" defaultValue={company?.contact_phone} />
+              <label className="field-label">Debits "due soon" window (days)</label>
+              <input className="input max-w-[160px]" name="debits_due_soon_days" type="number" min={1} defaultValue={company?.debits_due_soon_days ?? 30} />
+              <div className="text-[10.5px] text-muted mt-1">How far ahead the Debits page's top summary looks for upcoming payments.</div>
             </div>
-          </div>
-          <div>
-            <label className="field-label">Default GST rate (%)</label>
-            <input className="input max-w-[120px]" name="default_gst_rate" type="number" defaultValue={company?.default_gst_rate} />
-          </div>
-          <div className="grid grid-cols-2 gap-3.5">
-            <div>
-              <label className="field-label">Renewal alert window (days)</label>
-              <input className="input" name="renewal_window_days" type="number" min={1} defaultValue={company?.renewal_window_days ?? 90} />
-              <div className="text-[10.5px] text-muted mt-1">How far ahead the dashboard flags upcoming renewals.</div>
-            </div>
-            <div>
-              <label className="field-label">Urgent threshold (days)</label>
-              <input className="input" name="renewal_urgent_days" type="number" min={1} defaultValue={company?.renewal_urgent_days ?? 30} />
-              <div className="text-[10.5px] text-muted mt-1">Within this many days, the alert turns red instead of amber.</div>
-            </div>
-          </div>
-          <div>
-            <label className="field-label">Debits "due soon" window (days)</label>
-            <input className="input max-w-[160px]" name="debits_due_soon_days" type="number" min={1} defaultValue={company?.debits_due_soon_days ?? 30} />
-            <div className="text-[10.5px] text-muted mt-1">How far ahead the Debits page's top summary looks for upcoming payments.</div>
-          </div>
-          <SubmitButton pendingText="Saving...">Save Changes</SubmitButton>
-        </form>
+            <SubmitButton pendingText="Saving...">Save Changes</SubmitButton>
+          </form>
+
+          <form action={sendUrgentRenewalAlertsNow} className="card p-5">
+            <h2 className="font-display text-[15px] mb-1">Renewal Email Test</h2>
+            <div className="h-0.5 w-9 bg-gold rounded mb-3.5" />
+            {searchParams?.renewal_test === '1' && (
+              <div className="mb-3 rounded-md border border-ink/20 bg-[#EDF0F8] px-3 py-2 text-xs text-ink">
+                Urgent renewals: {searchParams.urgent ?? '0'} · New alerts: {searchParams.queued ?? '0'} · Admins: {searchParams.admins ?? '0'} · Emails accepted: {searchParams.sent ?? '0'}
+              </div>
+            )}
+            <p className="text-[11.5px] text-muted mb-3">
+              Sends a digest email to all active Admins for urgent renewals that have not already been notified.
+            </p>
+            <SubmitButton pendingText="Sending..." className="btn btn-outline">
+              Send Urgent Renewal Alerts Now
+            </SubmitButton>
+          </form>
+        </div>
       ) : (
         <div className="card p-5">
           <h2 className="font-display text-[15px] mb-1">Company Profile</h2>
