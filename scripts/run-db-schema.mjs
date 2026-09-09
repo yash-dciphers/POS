@@ -3,23 +3,19 @@ import path from 'node:path';
 import process from 'node:process';
 import dns from 'node:dns';
 import postgres from 'postgres';
+import { config } from 'dotenv';
 
 dns.setDefaultResultOrder('ipv4first');
 
 const envPath = path.join(process.cwd(), '.env.local');
 const migrationsDir = path.join(process.cwd(), 'db', 'migrations');
 
-// const envText = await fs.readFile(envPath, 'utf8');
-// const databaseUrlMatch = envText.match(/^DATABASE_URL=(?:"([^"]+)"|'([^']+)'|(.+))$/m);
-// const databaseUrl = databaseUrlMatch?.[1] ?? databaseUrlMatch?.[2] ?? databaseUrlMatch?.[3]?.trim();
+config({ path: envPath, quiet: true });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || databaseUrl.includes('ENTER_DATABASE_URL_HERE')) {
   throw new Error('DATABASE_URL is missing.');
 }
-// if (!databaseUrl || databaseUrl.includes('ENTER_DATABASE_URL_HERE')) {
-//   throw new Error('DATABASE_URL is missing in .env.local');
-// }
 
 // Every migration is applied in filename order, not just 001. There's no
 // "which migrations have run" table — each file is written to be safe to
