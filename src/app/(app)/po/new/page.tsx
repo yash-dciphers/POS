@@ -99,7 +99,7 @@ export default async function NewPoPage({ searchParams }: { searchParams: { clon
       {cloneNotice && (
         <div className="text-xs text-navy bg-[#EEF1FA] border border-navy/15 rounded-md px-3.5 py-2.5 mb-4">{cloneNotice}</div>
       )}
-      <PoCreateForm defaultGstRate={company?.default_gst_rate ?? 18} initialValues={initialValues} isAdmin={isAdmin} admins={admins} />
+      <PoCreateForm defaultGstRate={Number(company?.default_gst_rate ?? 18)} initialValues={initialValues} isAdmin={isAdmin} admins={admins} />
     </div>
   );
 }

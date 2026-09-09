@@ -71,7 +71,10 @@ export default function PoCreateForm({
   admins?: ApprovalAdmin[];
 }) {
   const [category, setCategory] = useState<'PRH' | 'PRS'>(initialValues?.category ?? 'PRS');
-  const [gstRate, setGstRate] = useState(initialValues?.gstRate ?? defaultGstRate);
+  // PostgreSQL numeric values may arrive as strings at runtime. Normalize
+  // before the first render so strict total validation never rejects a
+  // perfectly valid configured rate such as "18.00".
+  const [gstRate, setGstRate] = useState(Number(initialValues?.gstRate ?? defaultGstRate) || 0);
   const [vendor, setVendor] = useState<Vendor | null>(initialValues?.vendor ?? null);
   const [newVendorName, setNewVendorName] = useState<string | null>(null);
   const [newVendorFields, setNewVendorFields] = useState({

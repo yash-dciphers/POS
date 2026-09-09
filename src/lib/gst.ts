@@ -28,14 +28,16 @@ export interface Totals {
 // Flat-rate GST only (per confirmed decision — no CGST/SGST vs IGST split
 // in MVP; see Section 21 of the SRS for how to extend this later).
 export function calculateTotals(lineTotals: number[], gstRatePercent: number): Totals {
-  if (!Number.isFinite(gstRatePercent) || gstRatePercent < 0) {
+  const normalizedGstRate = Number(gstRatePercent);
+  const normalizedLineTotals = lineTotals.map(Number);
+  if (!Number.isFinite(normalizedGstRate) || normalizedGstRate < 0) {
     throw new Error('GST rate cannot be negative.');
   }
-  if (lineTotals.some((value) => !Number.isFinite(value) || value < 0)) {
+  if (normalizedLineTotals.some((value) => !Number.isFinite(value) || value < 0)) {
     throw new Error('Line item totals cannot be negative.');
   }
-  const subtotal = round2(lineTotals.reduce((sum, n) => sum + (n || 0), 0));
-  const gstAmount = round2(subtotal * (gstRatePercent / 100));
+  const subtotal = round2(normalizedLineTotals.reduce((sum, n) => sum + (n || 0), 0));
+  const gstAmount = round2(subtotal * (normalizedGstRate / 100));
   const grandTotal = round2(subtotal + gstAmount);
   return { subtotal, gstAmount, grandTotal };
 }
