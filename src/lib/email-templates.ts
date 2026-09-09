@@ -301,7 +301,7 @@ export interface UrgentRenewalEmailItem {
 }
 
 export interface UrgentRenewalEmailParams {
-  adminName: string;
+  recipientName: string;
   thresholdDays: number;
   renewals: UrgentRenewalEmailItem[];
 }
@@ -332,7 +332,7 @@ export function buildUrgentRenewalEmail(params: UrgentRenewalEmailParams): { sub
       <td style="padding:26px 28px 0;">
         <div style="color:${TEXT};font-size:19px;font-weight:600;">Urgent renewal attention required</div>
         <div style="color:${MUTED};font-size:13.5px;line-height:1.65;margin-top:10px;">
-          Hello ${escapeHtml(params.adminName)} — the following renewal${params.renewals.length === 1 ? ' is' : 's are'}
+          Hello ${escapeHtml(params.recipientName)} — the following renewal${params.renewals.length === 1 ? ' is' : 's are'}
           within the configured urgent threshold of
           <strong style="color:${TEXT};">${params.thresholdDays} days</strong>.
         </div>

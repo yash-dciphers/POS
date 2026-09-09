@@ -6,7 +6,7 @@ import SubmitButton from '@/components/SubmitButton';
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams?: { saved?: string; error?: string; renewal_test?: string; urgent?: string; queued?: string; admins?: string; sent?: string };
+  searchParams?: { saved?: string; error?: string; renewal_test?: string; urgent?: string; queued?: string; recipients?: string; sent?: string };
 }) {
   const user = await requireUser();
   const isAdmin = user.role === 'admin';
@@ -94,11 +94,11 @@ export default async function SettingsPage({
             <div className="h-0.5 w-9 bg-gold rounded mb-3.5" />
             {searchParams?.renewal_test === '1' && (
               <div className="mb-3 rounded-md border border-ink/20 bg-[#EDF0F8] px-3 py-2 text-xs text-ink">
-                Urgent renewals: {searchParams.urgent ?? '0'} · New alerts: {searchParams.queued ?? '0'} · Admins: {searchParams.admins ?? '0'} · Emails accepted: {searchParams.sent ?? '0'}
+                Urgent renewals: {searchParams.urgent ?? '0'} · New alerts: {searchParams.queued ?? '0'} · Recipients: {searchParams.recipients ?? '0'} · Emails accepted: {searchParams.sent ?? '0'}
               </div>
             )}
             <p className="text-[11.5px] text-muted mb-3">
-              Sends a digest email to all active Admins for urgent renewals that have not already been notified.
+              Sends a digest email to every active company user for urgent renewals that have not already been sent to them.
             </p>
             <SubmitButton pendingText="Sending..." className="btn btn-outline">
               Send Urgent Renewal Alerts Now

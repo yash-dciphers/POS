@@ -3,7 +3,7 @@ import { sendEmail } from '@/lib/email';
 import { buildUrgentRenewalEmail } from '@/lib/email-templates';
 import type { RenewalItem } from '@/components/RenewalAlerts';
 
-export async function notifyAdminsOfUrgentRenewals({
+export async function notifyUsersOfUrgentRenewals({
   companyId,
   urgentThresholdDays,
   renewals,
@@ -13,75 +13,89 @@ export async function notifyAdminsOfUrgentRenewals({
   urgentThresholdDays: number;
   renewals: RenewalItem[];
   force?: boolean;
-}): Promise<{ urgentCount: number; newCount: number; adminCount: number; deliveredCount: number }> {
+}): Promise<{ urgentCount: number; newCount: number; recipientCount: number; deliveredCount: number }> {
   const urgentRenewals = renewals.filter((renewal) => renewal.daysRemaining <= urgentThresholdDays);
-  if (urgentRenewals.length === 0) return { urgentCount: 0, newCount: 0, adminCount: 0, deliveredCount: 0 };
+  if (urgentRenewals.length === 0) return { urgentCount: 0, newCount: 0, recipientCount: 0, deliveredCount: 0 };
 
-  const sentRows = force
-    ? []
-    : await sql<{ line_item_id: string }[]>`
-      select line_item_id
-      from renewal_alert_notifications
-      where company_id = ${companyId}
-        and alert_type = 'urgent'
-        and line_item_id in ${sql(urgentRenewals.map((renewal) => renewal.lineItemId))}
-    `;
-  const sentIds = new Set(sentRows.map((row) => row.line_item_id));
-  const newlyUrgentRenewals = urgentRenewals.filter((renewal) => !sentIds.has(renewal.lineItemId));
-  if (newlyUrgentRenewals.length === 0) {
-    return { urgentCount: urgentRenewals.length, newCount: 0, adminCount: 0, deliveredCount: 0 };
-  }
-
-  const admins = await sql<{ email: string; full_name: string }[]>`
-    select u.email, p.full_name
+  const recipients = await sql<{ id: string; email: string; full_name: string }[]>`
+    select u.id, u.email, p.full_name
     from profiles p
     join app_users u on u.id = p.id
     where p.company_id = ${companyId}
-      and p.role = 'admin'
       and u.is_active = true
     order by p.full_name, u.email
   `;
 
-  if (admins.length === 0) {
-    return { urgentCount: urgentRenewals.length, newCount: newlyUrgentRenewals.length, adminCount: 0, deliveredCount: 0 };
+  if (recipients.length === 0) {
+    return { urgentCount: urgentRenewals.length, newCount: urgentRenewals.length, recipientCount: 0, deliveredCount: 0 };
+  }
+
+  const sentRows = force
+    ? []
+    : await sql<{ line_item_id: string; recipient_user_id: string }[]>`
+      select line_item_id, recipient_user_id
+      from renewal_alert_notifications
+      where company_id = ${companyId}
+        and alert_type = 'urgent'
+        and recipient_user_id is not null
+        and line_item_id in ${sql(urgentRenewals.map((renewal) => renewal.lineItemId))}
+    `;
+  const sentPairs = new Set(sentRows.map((row) => `${row.recipient_user_id}:${row.line_item_id}`));
+
+  const deliveries = recipients
+    .map((recipient) => ({
+      recipient,
+      renewals: urgentRenewals.filter(
+        (renewal) => force || !sentPairs.has(`${recipient.id}:${renewal.lineItemId}`)
+      ),
+    }))
+    .filter((delivery) => delivery.renewals.length > 0);
+
+  const newRenewalIds = new Set(deliveries.flatMap((delivery) => delivery.renewals.map((renewal) => renewal.lineItemId)));
+  if (deliveries.length === 0) {
+    return { urgentCount: urgentRenewals.length, newCount: 0, recipientCount: recipients.length, deliveredCount: 0 };
   }
 
   const results = await Promise.allSettled(
-    admins.map((admin) => {
+    deliveries.map(async ({ recipient, renewals: recipientRenewals }) => {
       const { subject, html } = buildUrgentRenewalEmail({
-        adminName: admin.full_name,
+        recipientName: recipient.full_name,
         thresholdDays: urgentThresholdDays,
-        renewals: newlyUrgentRenewals,
+        renewals: recipientRenewals,
       });
-      return sendEmail({ to: admin.email, subject, html });
+      await sendEmail({ to: recipient.email, subject, html });
+      return { recipient, renewals: recipientRenewals };
     })
   );
 
   const failed = results.filter((result) => result.status === 'rejected');
   if (failed.length) {
-    console.error(`Urgent renewal email failed for ${failed.length}/${admins.length} admin(s)`, failed);
+    console.error(`Urgent renewal email failed for ${failed.length}/${deliveries.length} recipient(s)`, failed);
   }
 
   const deliveredCount = results.filter((result) => result.status === 'fulfilled').length;
-  if (deliveredCount === 0) {
-    return { urgentCount: urgentRenewals.length, newCount: newlyUrgentRenewals.length, adminCount: admins.length, deliveredCount: 0 };
+  const deliveredPairs = results.flatMap((result) =>
+    result.status === 'fulfilled'
+      ? result.value.renewals.map((renewal) => [companyId, renewal.lineItemId, urgentThresholdDays, result.value.recipient.id])
+      : []
+  );
+  if (deliveredPairs.length > 0) {
+    await sql`
+      insert into renewal_alert_notifications (company_id, line_item_id, threshold_days, recipient_user_id)
+      values ${sql(deliveredPairs)}
+      on conflict (line_item_id, alert_type, recipient_user_id) where recipient_user_id is not null do nothing
+    `;
   }
-
-  await sql`
-    insert into renewal_alert_notifications (company_id, line_item_id, threshold_days)
-    values ${sql(newlyUrgentRenewals.map((renewal) => [companyId, renewal.lineItemId, urgentThresholdDays]))}
-    on conflict (line_item_id, alert_type) do nothing
-  `;
 
   return {
     urgentCount: urgentRenewals.length,
-    newCount: newlyUrgentRenewals.length,
-    adminCount: admins.length,
+    newCount: newRenewalIds.size,
+    recipientCount: recipients.length,
     deliveredCount,
   };
 }
 
-export async function notifyAdminsOfCurrentUrgentRenewals(companyId: string, options: { force?: boolean } = {}) {
+export async function notifyUsersOfCurrentUrgentRenewals(companyId: string, options: { force?: boolean } = {}) {
   const [company] = await sql<{ renewal_urgent_days: number }[]>`
     select renewal_urgent_days
     from companies
@@ -121,7 +135,7 @@ export async function notifyAdminsOfCurrentUrgentRenewals(companyId: string, opt
     order by li.term_end_date asc
   `;
 
-  return notifyAdminsOfUrgentRenewals({
+  return notifyUsersOfUrgentRenewals({
     companyId,
     urgentThresholdDays,
     force: options.force,

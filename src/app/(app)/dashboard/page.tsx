@@ -8,7 +8,7 @@ import PendingApprovalAlert, { type PendingApprovalItem } from '@/components/Pen
 import AdminPasswordReminder from '@/components/AdminPasswordReminder';
 import ExportExcelButton from '@/components/ExportExcelButton';
 import MonthlyPoChart, { type MonthlyDataPoint } from '@/components/MonthlyPoChart';
-import { notifyAdminsOfUrgentRenewals } from '@/lib/renewal-notifications';
+import { notifyUsersOfUrgentRenewals } from '@/lib/renewal-notifications';
 
 export default async function DashboardPage({
   searchParams,
@@ -45,7 +45,7 @@ export default async function DashboardPage({
 
   const upcomingLineItems = await sql`
     select
-      li.id, li.description, li.term_end_date,
+      li.id, li.description, li.term_end_date::text as term_end_date,
       jsonb_build_object(
         'id', p.id,
         'po_number', p.po_number,
@@ -57,7 +57,10 @@ export default async function DashboardPage({
     join purchase_orders p on p.id = li.po_id
     join vendors v on v.id = p.vendor_id
     where p.company_id = ${user.company_id}
+      and p.status = 'issued'
+      and p.deleted_at is null
       and li.term_end_date is not null
+      and li.term_end_date >= current_date
       and li.term_end_date <= ${windowOut.toISOString().slice(0, 10)}
     order by li.term_end_date asc
   `;
@@ -96,9 +99,7 @@ export default async function DashboardPage({
   // days, on an issued (not draft/cancelled) PO. Filtered in memory for the
   // same reason as above — small dataset, and it avoids relying on
   // PostgREST's embedded-filter syntax for the joined status check.
-  const todayStr = today.toISOString().slice(0, 10);
   const renewals: RenewalItem[] = (upcomingLineItems ?? [])
-    .filter((li: any) => li.purchase_orders?.status === 'issued' && !li.purchase_orders?.deleted_at && li.term_end_date >= todayStr)
     .map((li: any) => {
       const daysRemaining = Math.ceil((new Date(li.term_end_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return {
@@ -113,7 +114,7 @@ export default async function DashboardPage({
     });
 
   try {
-    await notifyAdminsOfUrgentRenewals({
+    await notifyUsersOfUrgentRenewals({
       companyId: user.company_id,
       urgentThresholdDays: renewalUrgentDays,
       renewals,

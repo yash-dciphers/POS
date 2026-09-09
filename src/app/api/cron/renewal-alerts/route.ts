@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { notifyAdminsOfCurrentUrgentRenewals } from '@/lib/renewal-notifications';
+import { notifyUsersOfCurrentUrgentRenewals } from '@/lib/renewal-notifications';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const configuredSecret = process.env.CRON_SECRET?.trim();
+  // A dedicated secret is preferred, but existing deployments already have
+  // AUTH_SECRET inside the container. Falling back to it lets the self-hosted
+  // daily workflow authenticate without copying a secret into GitHub.
+  const configuredSecret = process.env.CRON_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
   if (!configuredSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET is not configured.' }, { status: 500 });
+    return NextResponse.json({ error: 'CRON_SECRET or AUTH_SECRET is not configured.' }, { status: 500 });
   }
 
   const bearerToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
   const results = [];
 
   for (const company of companies) {
-    const result = await notifyAdminsOfCurrentUrgentRenewals(company.id);
+    const result = await notifyUsersOfCurrentUrgentRenewals(company.id);
     results.push({ companyId: company.id, ...result });
   }
 

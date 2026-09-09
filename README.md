@@ -17,10 +17,12 @@ MS_CLIENT_ID="ENTER_MICROSOFT_CLIENT_ID_HERE"
 MS_CLIENT_SECRET="ENTER_MICROSOFT_CLIENT_SECRET_HERE"
 MAIL_FROM="DCIPHERS <sender@dciphers.com>"
 APP_URL="http://localhost:3000"
+CRON_SECRET="ENTER_A_LONG_RANDOM_SECRET_HERE"
 ```
 
 Use `sslmode=disable` for local Docker Postgres.
 For production, set `APP_URL` to the deployed site URL and configure Microsoft Graph application permissions for the sender mailbox.
+The scheduled workflow runs on the production self-hosted runner, checks urgent renewals daily at 09:00 India time, and emails every active company user. It uses `CRON_SECRET` when configured and otherwise securely falls back to the container's existing `AUTH_SECRET`.
 
 4. Apply the schema:
 

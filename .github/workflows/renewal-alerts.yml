@@ -1,0 +1,28 @@
+name: Send Renewal Alerts
+
+on:
+  schedule:
+    # 09:00 India time every day.
+    - cron: '30 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  send-alerts:
+    # The production VM already runs a self-hosted Actions runner and the
+    # application container. Calling from inside that container keeps the
+    # authentication secret private and avoids extra GitHub secret setup.
+    runs-on: self-hosted
+    steps:
+      - name: Trigger renewal alerts
+        run: |
+          docker exec dciphers-po node -e '
+            const secret = process.env.CRON_SECRET || process.env.AUTH_SECRET;
+            if (!secret) throw new Error("CRON_SECRET or AUTH_SECRET is missing");
+            fetch("http://127.0.0.1:3000/api/cron/renewal-alerts", {
+              headers: { Authorization: `Bearer ${secret}` }
+            }).then(async (response) => {
+              const body = await response.text();
+              if (!response.ok) throw new Error(`Renewal alert check failed (${response.status}): ${body}`);
+              console.log(body);
+            });
+          '

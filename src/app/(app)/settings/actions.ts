@@ -4,7 +4,7 @@ import { sql } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth/session';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { notifyAdminsOfCurrentUrgentRenewals } from '@/lib/renewal-notifications';
+import { notifyUsersOfCurrentUrgentRenewals } from '@/lib/renewal-notifications';
 
 export async function updateCompany(formData: FormData) {
   const user = await requireAdmin();
@@ -41,7 +41,7 @@ export async function updateCompany(formData: FormData) {
 export async function sendUrgentRenewalAlertsNow() {
   const user = await requireAdmin();
 
-  const result = await notifyAdminsOfCurrentUrgentRenewals(user.company_id, { force: true });
+  const result = await notifyUsersOfCurrentUrgentRenewals(user.company_id, { force: true });
   revalidatePath('/dashboard');
   revalidatePath('/settings');
 
@@ -49,7 +49,7 @@ export async function sendUrgentRenewalAlertsNow() {
     renewal_test: '1',
     urgent: String(result.urgentCount),
     queued: String(result.newCount),
-    admins: String(result.adminCount),
+    recipients: String(result.recipientCount),
     sent: String(result.deliveredCount),
   });
   redirect(`/settings?${params.toString()}`);
