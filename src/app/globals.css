@@ -105,13 +105,15 @@ h1, h2, h3 {
 
   /* Inputs — deeper, more refined focus */
   .input {
-    @apply w-full rounded-md px-3 py-2 text-sm bg-white;
-    border: 1px solid var(--border);
+    @apply w-full rounded-md px-3 py-2 text-sm;
+    background: #F8F9FB;
+    border: 1px solid var(--border-strong);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .input:hover:not(:focus) { border-color: var(--border-strong); }
   .input:focus {
     outline: none;
+    background: #FFFFFF;
     border-color: var(--ink);
     box-shadow: var(--shadow-focus);
   }

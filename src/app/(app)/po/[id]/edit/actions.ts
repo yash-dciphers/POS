@@ -35,6 +35,13 @@ export interface UpdatePoInput {
 export async function updatePurchaseOrder(input: UpdatePoInput) {
   const user = await requireAdmin();
 
+  if (
+    (input.paymentTermsType === 'credit' || input.paymentTermsType === 'pdc') &&
+    (!Number.isInteger(Number(input.paymentTermsDays)) || Number(input.paymentTermsDays) < 1)
+  ) {
+    throw new Error('Payment term days must be a positive whole number.');
+  }
+
   const company = one(await sql<any[]>`select * from companies where id = ${user.company_id} limit 1`);
   if (!company) throw new Error('No company profile configured');
 

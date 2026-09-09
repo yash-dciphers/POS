@@ -45,6 +45,13 @@ export interface CreatePoInput {
 export async function createPurchaseOrder(input: CreatePoInput) {
   const user = await requireUser();
 
+  if (
+    (input.paymentTermsType === 'credit' || input.paymentTermsType === 'pdc') &&
+    (!Number.isInteger(Number(input.paymentTermsDays)) || Number(input.paymentTermsDays) < 1)
+  ) {
+    throw new Error('Payment term days must be a positive whole number.');
+  }
+
   // Defense in depth: never trust the client's chosen status for a
   // non-admin. Even if something bypassed the UI, a non-admin issuing a PO
   // always lands as pending_approval, not issued.

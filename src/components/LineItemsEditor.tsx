@@ -11,6 +11,9 @@ export interface LineItemColumn {
 }
 export type LineItemRow = Record<string, string | number | undefined>;
 
+const CELL_INPUT_CLASS =
+  'w-full rounded-md border border-[color:var(--border-strong)] bg-[#F4F6F9] px-2 py-1.5 text-sm text-[color:var(--text)] transition focus:border-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink/10';
+
 function toInputValue(value: unknown): string | number {
   if (!value) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -56,14 +59,21 @@ export default function LineItemsEditor({
 
   function updateCell(ri: number, key: string, value: string) {
     const next = [...rows];
-    const isNumeric = key === 'qty' || key === 'unitPrice' || key === 'total';
-    next[ri] = { ...next[ri], [key]: isNumeric ? Number(value) || 0 : value };
+    let normalizedValue: string | number = value;
+    if (key === 'qty') {
+      const parsed = Number(value);
+      normalizedValue = Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+    } else if (key === 'unitPrice' || key === 'total') {
+      const parsed = Number(value);
+      normalizedValue = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+    }
+    next[ri] = { ...next[ri], [key]: normalizedValue };
 
     const qty = Number(next[ri].qty) || 0;
 
     if (key === 'total') {
       // User typed into Total Price → derive Unit Price = Total / Qty
-      const total = Number(value) || 0;
+      const total = Number(normalizedValue) || 0;
       next[ri].unitPrice = qty > 0 ? Number((total / qty).toFixed(2)) : 0;
     } else if (key === 'unitPrice' || key === 'qty') {
       // User typed into Unit Price or Qty → derive Total = Unit Price × Qty
@@ -116,6 +126,12 @@ export default function LineItemsEditor({
     emit(rows, columns.filter((c) => c.key !== key));
   }
 
+  function blockInvalidNumberKeys(event: React.KeyboardEvent<HTMLInputElement>, allowDecimal: boolean) {
+    if (['-', '+', 'e', 'E'].includes(event.key) || (!allowDecimal && event.key === '.')) {
+      event.preventDefault();
+    }
+  }
+
   return (
     <div>
       <div className="overflow-x-auto">
@@ -142,22 +158,27 @@ export default function LineItemsEditor({
                   <td key={c.key}>
                     {c.key === 'total' ? (
                       <input
-                        className="border-0 bg-transparent w-full text-sm p-1 focus:outline-none focus:bg-bg rounded text-right font-mono font-semibold"
+                        className={`${CELL_INPUT_CLASS} text-right font-mono font-semibold`}
                         type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder="0.00"
                         value={r.total ?? 0}
                         onChange={(e) => updateCell(ri, 'total', e.target.value)}
+                        onKeyDown={(e) => blockInvalidNumberKeys(e, true)}
                       />
                     ) : c.type === 'date_range' ? (
                       <div className="flex items-center gap-1">
                         <input
-                          className="border-0 bg-transparent text-sm p-1 focus:outline-none focus:bg-bg rounded w-[124px]"
+                          className={`${CELL_INPUT_CLASS} w-[124px]`}
                           type="date"
                           value={toInputValue(r.term_start_date)}
                           onChange={(e) => updateDateRangeCell(ri, 'term_start_date', e.target.value)}
                         />
                         <span className="text-muted text-xs">–</span>
                         <input
-                          className="border-0 bg-transparent text-sm p-1 focus:outline-none focus:bg-bg rounded w-[124px]"
+                          className={`${CELL_INPUT_CLASS} w-[124px]`}
                           type="date"
                           value={toInputValue(r.term_end_date)}
                           onChange={(e) => updateDateRangeCell(ri, 'term_end_date', e.target.value)}
@@ -165,10 +186,29 @@ export default function LineItemsEditor({
                       </div>
                     ) : (
                       <input
-                        className="border-0 bg-transparent w-full text-sm p-1 focus:outline-none focus:bg-bg rounded"
+                        className={CELL_INPUT_CLASS}
                         type={c.type === 'number' ? 'number' : 'text'}
+                        min={c.type === 'number' ? (c.key === 'qty' ? 1 : 0) : undefined}
+                        step={c.type === 'number' ? (c.key === 'qty' ? 1 : '0.01') : undefined}
+                        inputMode={c.type === 'number' ? (c.key === 'qty' ? 'numeric' : 'decimal') : undefined}
+                        placeholder={
+                          c.key === 'description'
+                            ? 'Enter description'
+                            : c.key === 'partCode'
+                            ? 'Enter part code'
+                            : c.key === 'qty'
+                            ? '1'
+                            : c.key === 'unitPrice'
+                            ? '0.00'
+                            : `Enter ${c.label.toLowerCase()}`
+                        }
                         value={toInputValue(r[c.key])}
                         onChange={(e) => updateCell(ri, c.key, e.target.value)}
+                        onKeyDown={
+                          c.type === 'number'
+                            ? (e) => blockInvalidNumberKeys(e, c.key !== 'qty')
+                            : undefined
+                        }
                       />
                     )}
                   </td>

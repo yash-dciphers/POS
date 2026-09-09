@@ -194,10 +194,20 @@ export default function PoCreateForm({
   function validate(): string | null {
     if (!vendor && !newVendorName) return 'Select or create a vendor before saving.';
     if (lineItems.length === 0) return 'Add at least one line item.';
+    if (gstRate < 0 || !Number.isFinite(gstRate)) return 'GST rate cannot be negative.';
+    if (lineItems.some((item) => !Number.isInteger(Number(item.qty)) || Number(item.qty) < 1)) {
+      return 'Quantity must be a positive whole number (1, 2, 3…).';
+    }
+    if (lineItems.some((item) => Number(item.unitPrice) < 0 || Number(item.total) < 0)) {
+      return 'Price and total values cannot be negative.';
+    }
     if (mode === 'edit' && poNumberMode === 'custom' && !customPoNumber.trim()) return 'Enter a custom PO number, or choose a different option.';
     if (!shipSame && (!shipToName.trim() || !shipToAddress.trim())) return 'Enter a Ship To name and address, or check "same as Bill To".';
-    if ((paymentTermsType === 'credit' || paymentTermsType === 'pdc') && !paymentTermsDays) {
-      return 'Enter the number of days for Credit / PDC payment terms.';
+    if (
+      (paymentTermsType === 'credit' || paymentTermsType === 'pdc') &&
+      (!Number.isInteger(Number(paymentTermsDays)) || Number(paymentTermsDays) < 1)
+    ) {
+      return 'Enter a positive whole number of days for Credit / PDC payment terms.';
     }
     if (!isAdmin && mode === 'create' && finalStatus === 'pending_approval' && !requestedApproverId) {
       return 'Choose the Admin who should receive this approval request.';
@@ -423,7 +433,18 @@ export default function PoCreateForm({
             </div>
             <div>
               <label className="field-label">GST rate (%)</label>
-              <input type="number" className="input" value={gstRate} onChange={(e) => setGstRate(Number(e.target.value) || 0)} />
+              <input
+                type="number"
+                className="input"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={gstRate}
+                onKeyDown={(e) => {
+                  if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => setGstRate(Math.max(0, Number(e.target.value) || 0))}
+              />
             </div>
           </div>
           <label className="flex items-center gap-2 text-xs text-muted">
@@ -502,9 +523,17 @@ export default function PoCreateForm({
                   className="input mt-1.5"
                   type="number"
                   min={1}
+                  step={1}
+                  inputMode="numeric"
                   placeholder="Number of days"
                   value={paymentTermsDays}
-                  onChange={(e) => setPaymentTermsDays(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (['-', '+', '.', 'e', 'E'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    if (!e.target.value) return setPaymentTermsDays('');
+                    setPaymentTermsDays(String(Math.max(1, Math.trunc(Number(e.target.value) || 1))));
+                  }}
                 />
               )}
               {paymentTermsType === 'immediate' && (
