@@ -160,28 +160,34 @@ export default async function DashboardPage({
       </div>
 
       <div className="card overflow-hidden">
-        <form className="p-4 flex items-center justify-between border-b border-border gap-2.5 flex-wrap">
-          <div className="flex gap-2">
+        <form className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <input
-              className="input max-w-xs"
+              className="input min-w-0 sm:max-w-xs sm:flex-1"
               name="q"
               defaultValue={searchParams.q}
               placeholder="Search PO number, vendor…"
             />
-            <select className="input max-w-[160px]" name="status" defaultValue={searchParams.status ?? ''}>
+            <select className="input sm:w-[170px]" name="status" defaultValue={searchParams.status ?? ''}>
               <option value="">All statuses</option>
               <option value="issued">Issued</option>
               <option value="pending_approval">Pending Approval</option>
               <option value="draft">Draft</option>
               <option value="cancelled">Cancelled</option>
             </select>
-            <label className="flex items-center gap-1.5 text-xs text-muted px-1">
-              <input type="checkbox" name="mine" value="1" defaultChecked={mineOnly} />
-              My POs only
+            <label className="flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-md border border-border bg-white px-3 text-xs font-medium text-muted transition hover:border-[color:var(--border-strong)] hover:text-navy">
+              <input
+                type="checkbox"
+                name="mine"
+                value="1"
+                defaultChecked={mineOnly}
+                className="h-4 w-4 accent-[var(--navy)]"
+              />
+              Only my POs
             </label>
-            <button className="btn btn-outline text-xs">Filter</button>
+            <button className="btn btn-outline min-h-10 text-xs sm:px-4">Apply Filters</button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap xl:shrink-0">
             <ExportExcelButton
               rows={rows.map((po: any) => ({
                 po_number: po.po_number,
