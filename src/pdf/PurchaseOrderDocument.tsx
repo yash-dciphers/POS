@@ -2,7 +2,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Image, Link } from '@react-pdf/renderer';
 import fs from 'fs';
 import path from 'path';
-import { resolveColumns, getLineItemValue, formatLineItemValue, NUMERIC_KEYS, type StoredColumn } from '@/lib/line-items';
+import { resolveColumns, getLineItemValue, formatLineItemValue, type StoredColumn } from '@/lib/line-items';
 import { formatPhone } from '@/lib/phone';
 
 const LOGO_PATH = path.join(process.cwd(), 'src/pdf/assets/logo.png');
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   table: { marginBottom: 16, borderTopWidth: 1, borderTopColor: '#1A1D23' },
   tableHeadRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     backgroundColor: '#FAFAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#1A1D23',
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   },
   tr: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: BORDER,
     paddingVertical: 7,
@@ -97,7 +97,8 @@ const styles = StyleSheet.create({
   trAlt: { backgroundColor: '#FBFBFC' },
   th: { fontSize: 7.5, textTransform: 'uppercase', letterSpacing: 0.5, color: MUTED, fontFamily: 'NotoSans', fontWeight: 'bold', textAlign: 'center' },
   cellText: { fontSize: 9, lineHeight: 1.35 },
-  descriptionText: { fontSize: 9, lineHeight: 1.45, textAlign: 'justify' },
+  descriptionText: { fontSize: 9, lineHeight: 1.45, textAlign: 'center' },
+  tableCell: { flexShrink: 0, paddingHorizontal: 5 },
   cellTextSmall: { fontSize: 7.8, lineHeight: 1.3, color: '#33363D' },
   right: { textAlign: 'right' },
   center: { textAlign: 'center' },
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     left: 44,
     right: 44,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#1A1D23',
     paddingBottom: 5,
@@ -425,11 +426,11 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
           render={({ pageNumber }: { pageNumber: number }) =>
             pageNumber > 1 && pageNumber <= tablePageCount
               ? [
-                  <View key="sno" style={{ width: 28, flexShrink: 0, paddingRight: 5 }}>
+                  <View key="sno" style={[styles.tableCell, { width: 28 }]}>
                     <Text style={styles.th}>S.No</Text>
                   </View>,
                   ...columns.map((c) => (
-                    <View key={c.key} style={{ width: widths[c.key], flexShrink: 0, paddingRight: 10 }}>
+                    <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
                       <Text style={styles.th}>{c.label}</Text>
                     </View>
                   )),
@@ -482,26 +483,26 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
 
         <View style={styles.table}>
           <View style={styles.tableHeadRow}>
-            <View style={{ width: 28, flexShrink: 0, paddingRight: 5 }}>
+            <View style={[styles.tableCell, { width: 28 }]}>
               <Text style={styles.th}>S.No</Text>
             </View>
             {columns.map((c) => (
-              <View key={c.key} style={{ width: widths[c.key], flexShrink: 0, paddingRight: 10 }}>
+              <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
                 <Text style={styles.th}>{c.label}</Text>
               </View>
             ))}
           </View>
           {lineItems.map((li, rowIndex) => (
             <View style={[styles.tr, rowIndex % 2 === 1 ? styles.trAlt : {}]} key={li.id} wrap={false}>
-              <View style={{ width: 28, flexShrink: 0, paddingRight: 5 }}>
+              <View style={[styles.tableCell, { width: 28 }]}>
                 <Text style={[styles.cellText, styles.center]}>{rowIndex + 1}</Text>
               </View>
               {columns.map((c, i) => (
-                <View key={c.key} style={{ width: widths[c.key], flexShrink: 0, paddingRight: 10 }}>
+                <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
                   <Text
                     style={[
                       i === 0 ? styles.descriptionText : SMALL_FONT_KEYS.has(c.key) ? styles.cellTextSmall : styles.cellText,
-                      c.key === 'qty' ? styles.center : NUMERIC_KEYS.has(c.key) ? styles.right : {},
+                      styles.center,
                     ]}
                   >
                     {formatLineItemValue(c.key, getLineItemValue(li, c.key))}
