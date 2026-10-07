@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     borderBottomWidth: 2,
     borderBottomColor: NAVY,
-    paddingBottom: 14,
-    marginBottom: 16,
+    paddingBottom: 11,
+    marginBottom: 12,
   },
   headerLeft: { flexDirection: 'row', flexGrow: 1, flexShrink: 1, paddingRight: 20, alignItems: 'center' },
   logoBox: { width: 48, height: 49, marginRight: 12, flexGrow: 0, flexShrink: 0 },
@@ -71,22 +71,28 @@ const styles = StyleSheet.create({
   small: { fontSize: 8.5, color: MUTED, lineHeight: 1.5 },
   bold: { fontFamily: 'NotoSans', fontWeight: 'bold' },
 
-  vendorBlock: { marginBottom: 14 },
-  partiesRow: { flexDirection: 'row', marginBottom: 18 },
+  vendorBlock: { marginBottom: 10 },
+  partiesRow: { flexDirection: 'row', marginBottom: 12 },
   partyBlock: { flex: 1 },
   partyBlockGap: { width: 28, flexShrink: 0 },
   partyLabel: { fontSize: 7.5, textTransform: 'uppercase', letterSpacing: 1, color: MUTED, marginBottom: 5, fontFamily: 'NotoSans', fontWeight: 'bold' },
   partyName: { fontSize: 10, fontFamily: 'NotoSans', fontWeight: 'bold', marginBottom: 3 },
 
-  table: { marginBottom: 16, borderTopWidth: 1, borderTopColor: '#1A1D23' },
+  // The head row and the item rows are siblings in the page flow rather than
+  // children of one wrapping <View> — see the table markup below for why. That
+  // means the table's top rule lives on the head row itself, and its bottom
+  // margin is a spacer element.
   tableHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FAFAFB',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1D23',
     borderBottomWidth: 1,
     borderBottomColor: '#1A1D23',
     paddingVertical: 6,
   },
+  tableBottomSpacer: { height: 12 },
   tr: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -117,17 +123,17 @@ const styles = StyleSheet.create({
   paymentInfoBlock: { marginTop: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: BORDER },
   footerLine: { fontSize: 8.5, color: MUTED, marginTop: 3, lineHeight: 1.5 },
 
-  tncBlock: { marginTop: 16 },
+  tncBlock: { marginTop: 12 },
   tncLabel: { fontSize: 7.5, textTransform: 'uppercase', letterSpacing: 1, color: MUTED, marginBottom: 5, fontFamily: 'NotoSans', fontWeight: 'bold' },
   tncText: { fontSize: 8, lineHeight: 1.55, color: '#33363D', marginBottom: 2 },
 
-  footerRow: { flexDirection: 'row', marginTop: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: BORDER },
+  footerRow: { flexDirection: 'row', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: BORDER },
   footerLeft: { flex: 1 },
-  footerRight: { width: 130, alignItems: 'center', justifyContent: 'flex-end' },
+  footerRight: { width: 116, alignItems: 'center', justifyContent: 'flex-end' },
 
-  stampImage: { width: 110, height: 110 / STAMP_ASPECT },
-  signatoryName: { fontSize: 8, fontFamily: 'NotoSans', fontWeight: 'bold', textAlign: 'center', marginTop: 6, width: 110 },
-  signatureCaption: { fontSize: 7.5, color: MUTED, textAlign: 'center', marginTop: 2, width: 110 },
+  stampImage: { width: 96, height: 96 / STAMP_ASPECT },
+  signatoryName: { fontSize: 8, fontFamily: 'NotoSans', fontWeight: 'bold', textAlign: 'center', marginTop: 5, width: 96 },
+  signatureCaption: { fontSize: 7.5, color: MUTED, textAlign: 'center', marginTop: 2, width: 96 },
 
   watermark: {
     position: 'absolute',
@@ -175,11 +181,17 @@ const styles = StyleSheet.create({
   },
   runningFooterText: { fontSize: 7.5, color: MUTED },
 
+  // The container is a bare positioning box. The rule and the row layout sit on
+  // continuationHeaderRow instead, which only exists on pages where the render
+  // callback actually returns the repeated header — otherwise the border drew a
+  // stray line across the top of every page, including page 1.
   continuationHeader: {
     position: 'absolute',
     top: 16,
     left: 44,
     right: 44,
+  },
+  continuationHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
@@ -424,18 +436,18 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
           style={styles.continuationHeader}
           fixed
           render={({ pageNumber }: { pageNumber: number }) =>
-            pageNumber > 1 && pageNumber <= tablePageCount
-              ? [
-                  <View key="sno" style={[styles.tableCell, { width: 28 }]}>
-                    <Text style={styles.th}>S.No</Text>
-                  </View>,
-                  ...columns.map((c) => (
-                    <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
-                      <Text style={styles.th}>{c.label}</Text>
-                    </View>
-                  )),
-                ]
-              : null
+            pageNumber > 1 && pageNumber <= tablePageCount ? (
+              <View style={styles.continuationHeaderRow}>
+                <View style={[styles.tableCell, { width: 28 }]}>
+                  <Text style={styles.th}>S.No</Text>
+                </View>
+                {columns.map((c) => (
+                  <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
+                    <Text style={styles.th}>{c.label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null
           }
         />
 
@@ -481,18 +493,27 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
           <PartyBlock label="Ship To" party={po.ship_to_snapshot} fallback={po.bill_to_snapshot} />
         </View>
 
-        <View style={styles.table}>
-          <View style={styles.tableHeadRow}>
-            <View style={[styles.tableCell, { width: 28 }]}>
-              <Text style={styles.th}>S.No</Text>
-            </View>
-            {columns.map((c) => (
-              <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
-                <Text style={styles.th}>{c.label}</Text>
-              </View>
-            ))}
+        {/*
+          The head row and every item row are siblings here, deliberately NOT
+          children of one wrapping <View>. react-pdf only splits a block across
+          pages when that block is taller than a whole page; anything shorter it
+          relocates whole. Wrapped in a single <View>, a table that no longer fit
+          under the header/vendor/parties blocks was therefore moved to page 2
+          in its entirety, leaving page 1 empty below the addresses. As loose
+          siblings the rows paginate one by one, filling page 1 before
+          continuing — which is what the repeated header above is there for.
+        */}
+        <View style={styles.tableHeadRow}>
+          <View style={[styles.tableCell, { width: 28 }]}>
+            <Text style={styles.th}>S.No</Text>
           </View>
-          {lineItems.map((li, rowIndex) => (
+          {columns.map((c) => (
+            <View key={c.key} style={[styles.tableCell, { width: widths[c.key] }]}>
+              <Text style={styles.th}>{c.label}</Text>
+            </View>
+          ))}
+        </View>
+        {lineItems.map((li, rowIndex) => (
             <View style={[styles.tr, rowIndex % 2 === 1 ? styles.trAlt : {}]} key={li.id} wrap={false}>
               <View style={[styles.tableCell, { width: 28 }]}>
                 <Text style={[styles.cellText, styles.center]}>{rowIndex + 1}</Text>
@@ -511,7 +532,7 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
               ))}
             </View>
           ))}
-        </View>
+        <View style={styles.tableBottomSpacer} />
 
         <View wrap={false}>
           <View style={styles.totalsBox}>
@@ -532,8 +553,15 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
           <Text style={[styles.small, { marginTop: 12 }]}>Value in words: {po.amount_in_words}</Text>
         </View>
 
-        <View wrap={false}>
-          <View style={styles.tncBlock}>
+        {/*
+          Terms & Conditions used to share one wrap={false} block with the
+          signature footer below. Together they are tall enough to miss the
+          bottom of a page routinely, and being unbreakable the pair jumped to
+          the next page as a unit. Only the signature block — stamp, name and
+          caption — genuinely must stay together, so the terms now flow on their
+          own and fill the space that was being wasted.
+        */}
+        <View style={styles.tncBlock}>
           <Text style={styles.tncLabel}>Terms &amp; Conditions</Text>
           <Text style={styles.tncText}>1. Purchase Order no &amp; date shall be mentioned along with each item on the invoice.</Text>
           <Text style={styles.tncText}>2. HSN/SAC code and item code as per P.O for each item shall be mentioned on the invoice.</Text>
@@ -566,7 +594,6 @@ export default function PurchaseOrderDocument({ po, lineItems }: { po: PoForPdf;
             <Text style={styles.signatoryName}>Authorized Signatory</Text>
             <Text style={styles.signatureCaption}>DCIPHERS IT SOLUTIONS PVT. LTD.</Text>
           </View>
-        </View>
         </View>
 
         <View style={styles.runningFooter} fixed>

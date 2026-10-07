@@ -48,7 +48,9 @@ export default async function EditPoPage({ params }: { params: { id: string } })
     ...parseJsonValue(li.custom_fields, {}),
     description: li.description,
     partCode: li.part_code ?? undefined,
-    qty: li.qty,
+    // Number() strips the numeric column's trailing ".00" so the editor shows
+    // a quantity of 1 as "1", not "1.00".
+    qty: Number(li.qty),
     unitPrice: li.unit_price,
     total: li.total_price,
     term_start_date: toDateInputValue(li.term_start_date) || undefined,

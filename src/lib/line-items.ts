@@ -26,6 +26,11 @@ const DB_FIELD_MAP: Record<string, string> = {
 };
 
 const MONEY_KEYS = new Set(['unitPrice', 'total']);
+// Quantity is a count of things, so it never has a decimal part. It's stored
+// in a numeric column, which the Postgres driver hands back as a string like
+// "1.00" — printing that verbatim showed quantities as "1.00" instead of "1"
+// on the PO page and in the generated PDF.
+const WHOLE_NUMBER_KEYS = new Set(['qty']);
 export const NUMERIC_KEYS = new Set(['qty', 'unitPrice', 'total']);
 
 export const DEFAULT_LINE_ITEM_COLUMNS: StoredColumn[] = [
@@ -80,6 +85,10 @@ export function formatLineItemValue(key: string, value: unknown): string {
     return `${formatDateShort(start) || '—'} – ${formatDateShort(end) || '—'}`;
   }
   if (value === null || value === undefined || value === '') return '—';
+  if (WHOLE_NUMBER_KEYS.has(key)) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? String(Math.round(numeric)) : String(value);
+  }
   if (MONEY_KEYS.has(key)) {
     return '₹' + Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
