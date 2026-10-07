@@ -2,7 +2,7 @@
 
 import { sql, one, jsonb } from '@/lib/db';
 import { requireUser } from '@/lib/auth/session';
-import { getNextPoNumber } from '@/lib/po-numbering';
+import { getNextPoNumber, getNextDraftNumber } from '@/lib/po-numbering';
 import { calculateTotals, lineTotal } from '@/lib/gst';
 import { numberToWordsIndian } from '@/lib/number-to-words';
 import { sendEmail } from '@/lib/email';
@@ -98,9 +98,13 @@ export async function createPurchaseOrder(input: CreatePoInput) {
     if (!requestedApprover) throw new Error('Selected approval Admin is no longer available.');
   }
 
-  // Atomically reserve the next PO number for the chosen series/fiscal year.
+  // Atomically reserve the next number for the chosen series/fiscal year. A
+  // draft draws from the provisional draft series instead, so abandoning it
+  // never leaves a hole in the real PO numbering; it is given a real number
+  // only once it leaves draft status (see the edit action).
   const poDate = new Date(input.poDate);
-  const { poNumber, fiscalYear } = await getNextPoNumber({
+  const reserveNumber = effectiveStatus === 'draft' ? getNextDraftNumber : getNextPoNumber;
+  const { poNumber, fiscalYear } = await reserveNumber({
     companyId: company.id,
     companyCode: 'DCIPHERS',
     seriesPrefix: input.category,

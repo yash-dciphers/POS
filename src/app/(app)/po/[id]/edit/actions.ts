@@ -4,7 +4,7 @@ import { sql, one, jsonb } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth/session';
 import { calculateTotals, lineTotal } from '@/lib/gst';
 import { numberToWordsIndian } from '@/lib/number-to-words';
-import { getNextPoNumber } from '@/lib/po-numbering';
+import { getNextPoNumber, isDraftNumber } from '@/lib/po-numbering';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { CreatePoLineItem } from '../../new/actions';
@@ -75,7 +75,18 @@ export async function updatePurchaseOrder(input: UpdatePoInput) {
   let poNumber = existing.po_number;
   let seriesPrefix = existing.series_prefix;
   let fiscalYear = existing.fiscal_year;
-  if (input.poNumberMode === 'generate') {
+  // A draft leaving draft status is the moment it earns a real PO number: it
+  // takes the next free number in the running series as of now. Numbers already
+  // issued are never reshuffled to make room for it. An Admin typing a custom
+  // number still wins — that is an explicit override.
+  const usesCustomNumber = input.poNumberMode === 'custom' && Boolean(input.customPoNumber);
+  const leavingDraft =
+    existing.status === 'draft' && input.status !== 'draft' && isDraftNumber(existing.po_number) && !usesCustomNumber;
+
+  if (leavingDraft) {
+    // Reserved inside the transaction below, so the number can't be claimed by
+    // another PO between reserving it and writing it.
+  } else if (input.poNumberMode === 'generate') {
     const result = await getNextPoNumber({
       companyId: company.id,
       companyCode: 'DCIPHERS',
@@ -115,57 +126,76 @@ export async function updatePurchaseOrder(input: UpdatePoInput) {
       custom_fields: custom,
     };
   });
+  // One transaction for the whole write. Reserving the real PO number, replacing
+  // this PO's line items and recording the audit trail have to land together or
+  // not at all — a half-applied promotion would burn a number on a PO that was
+  // never actually updated.
   try {
-    await sql`
-      update purchase_orders
-      set po_number = ${poNumber},
-          series_prefix = ${seriesPrefix},
-          fiscal_year = ${fiscalYear},
-          po_date = ${input.poDate},
-          vendor_id = ${vendorId},
-          quote_number = ${input.quoteNumber || null},
-          vendor_contact_person = ${input.contactPerson || null},
-          vendor_contact_phone = ${input.contactPhone || null},
-          ship_to_snapshot = ${shipToSnapshot ? jsonb(shipToSnapshot) : null}::jsonb,
-          gst_rate = ${input.gstRate},
-          subtotal = ${subtotal},
-          gst_amount = ${gstAmount},
-          grand_total = ${grandTotal},
-          amount_in_words = ${amountInWords},
-          delivery_timeline = ${input.deliveryTimeline},
-          payment_terms = ${input.paymentTerms},
-          payment_terms_type = ${input.paymentTermsType ?? null},
-          payment_terms_days = ${input.paymentTermsDays ?? null},
-          terms_and_conditions = ${input.termsAndConditions},
-          line_item_columns = ${jsonb(input.lineItemColumns as any)}::jsonb,
-          status = ${input.status},
-          updated_by = ${user.id},
-          rejection_reason = ${input.status !== 'draft' ? null : existing.rejection_reason},
-          rejected_by = ${input.status !== 'draft' ? null : existing.rejected_by},
-          rejected_at = ${input.status !== 'draft' ? null : existing.rejected_at}
-      where id = ${input.poId}
-        and company_id = ${user.company_id}
-    `;
-    await sql`delete from po_line_items where po_id = ${input.poId}`;
-    for (const row of rows) {
-      await sql`
-        insert into po_line_items (
-          po_id, sort_order, description, part_code, qty, unit_price, total_price,
-          term_start_date, term_end_date, custom_fields
-        )
-        values (
-          ${input.poId}, ${row.sort_order}, ${row.description}, ${row.part_code}, ${row.qty}, ${row.unit_price},
-          ${row.total_price}, ${row.term_start_date}, ${row.term_end_date}, ${jsonb(row.custom_fields as any)}::jsonb
-        )
+    await sql.begin(async (tx) => {
+      if (leavingDraft) {
+        const promotion = await getNextPoNumber(
+          {
+            companyId: company.id,
+            companyCode: 'DCIPHERS',
+            seriesPrefix,
+            poDate: new Date(input.poDate),
+          },
+          tx
+        );
+        poNumber = promotion.poNumber;
+        fiscalYear = promotion.fiscalYear;
+      }
+      await tx`
+        update purchase_orders
+        set po_number = ${poNumber},
+            series_prefix = ${seriesPrefix},
+            fiscal_year = ${fiscalYear},
+            po_date = ${input.poDate},
+            vendor_id = ${vendorId},
+            quote_number = ${input.quoteNumber || null},
+            vendor_contact_person = ${input.contactPerson || null},
+            vendor_contact_phone = ${input.contactPhone || null},
+            ship_to_snapshot = ${shipToSnapshot ? jsonb(shipToSnapshot) : null}::jsonb,
+            gst_rate = ${input.gstRate},
+            subtotal = ${subtotal},
+            gst_amount = ${gstAmount},
+            grand_total = ${grandTotal},
+            amount_in_words = ${amountInWords},
+            delivery_timeline = ${input.deliveryTimeline},
+            payment_terms = ${input.paymentTerms},
+            payment_terms_type = ${input.paymentTermsType ?? null},
+            payment_terms_days = ${input.paymentTermsDays ?? null},
+            terms_and_conditions = ${input.termsAndConditions},
+            line_item_columns = ${jsonb(input.lineItemColumns as any)}::jsonb,
+            status = ${input.status},
+            updated_by = ${user.id},
+            rejection_reason = ${input.status !== 'draft' ? null : existing.rejection_reason},
+            rejected_by = ${input.status !== 'draft' ? null : existing.rejected_by},
+            rejected_at = ${input.status !== 'draft' ? null : existing.rejected_at}
+        where id = ${input.poId}
+          and company_id = ${user.company_id}
       `;
-    }
-    await sql`
-      insert into po_audit_log (po_id, changed_by, action, diff)
-      values (${input.poId}, ${user.id}, 'edited', ${jsonb({
-        before: { po_number: existing.po_number, grand_total: existing.grand_total, status: existing.status },
-        after: { po_number: poNumber, grand_total: grandTotal, status: input.status },
-      })}::jsonb)
-    `;
+      await tx`delete from po_line_items where po_id = ${input.poId}`;
+      for (const row of rows) {
+        await tx`
+          insert into po_line_items (
+            po_id, sort_order, description, part_code, qty, unit_price, total_price,
+            term_start_date, term_end_date, custom_fields
+          )
+          values (
+            ${input.poId}, ${row.sort_order}, ${row.description}, ${row.part_code}, ${row.qty}, ${row.unit_price},
+            ${row.total_price}, ${row.term_start_date}, ${row.term_end_date}, ${jsonb(row.custom_fields as any)}::jsonb
+          )
+        `;
+      }
+      await tx`
+        insert into po_audit_log (po_id, changed_by, action, diff)
+        values (${input.poId}, ${user.id}, 'edited', ${jsonb({
+          before: { po_number: existing.po_number, grand_total: existing.grand_total, status: existing.status },
+          after: { po_number: poNumber, grand_total: grandTotal, status: input.status },
+        })}::jsonb)
+      `;
+    });
   } catch (error: any) {
     if (error?.code === '23505') {
       throw new Error(`PO number "${poNumber}" is already in use by another purchase order — pick a different one.`);
