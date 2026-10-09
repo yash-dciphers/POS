@@ -7,7 +7,7 @@ import RenewalAlerts, { type RenewalItem } from '@/components/RenewalAlerts';
 import PendingApprovalAlert, { type PendingApprovalItem } from '@/components/PendingApprovalAlert';
 import AdminPasswordReminder from '@/components/AdminPasswordReminder';
 import ExportExcelButton from '@/components/ExportExcelButton';
-import YearlyPoChart, { type YearlyDataPoint } from '@/components/YearlyPoChart';
+import PoActivityChart, { type YearPoint } from '@/components/PoActivityChart';
 import { notifyUsersOfUrgentRenewals } from '@/lib/renewal-notifications';
 
 export default async function DashboardPage({
@@ -123,21 +123,44 @@ export default async function DashboardPage({
     console.error('Urgent renewal notification failed', error);
   }
 
-  // Issued POs grouped by fiscal year, oldest first. Built from `all` (already
-  // fetched above) rather than a separate query. Grouping on the fiscal_year
-  // column rather than on po_date keeps the chart agreeing with the PO numbers
-  // themselves — that column is what the numbering series is keyed on.
-  const countsByFiscalYear = new Map<string, { count: number; value: number }>();
+  // Per-calendar-year monthly buckets, built in a single pass over `all`
+  // (already fetched above) so the chart's year dropdown can switch instantly
+  // with no refetch. The dropdown starts at 2020 but stretches further back if
+  // an older PO exists, and always runs to the current year — so it keeps
+  // working in future years instead of going stale at a hardcoded end.
+  const currentYear = today.getFullYear();
+  const earliestYear = (all as any[]).reduce(
+    (earliest, po) => Math.min(earliest, new Date(po.po_date).getFullYear()),
+    Math.min(2020, currentYear)
+  );
+  const monthLabels = Array.from({ length: 12 }, (_, m) =>
+    new Date(2000, m, 1).toLocaleDateString('en-IN', { month: 'short' })
+  );
+  const yearPoints = new Map<number, YearPoint>();
+  for (let year = earliestYear; year <= currentYear; year += 1) {
+    yearPoints.set(year, {
+      year,
+      months: monthLabels.map((label) => ({ label, count: 0, value: 0 })),
+      issued: 0,
+      draft: 0,
+      value: 0,
+    });
+  }
   for (const po of all as any[]) {
+    const poDate = new Date(po.po_date);
+    const point = yearPoints.get(poDate.getFullYear());
+    if (!point) continue;
+    if (po.status === 'draft') point.draft += 1;
     if (po.status !== 'issued') continue;
-    const bucket = countsByFiscalYear.get(po.fiscal_year) ?? { count: 0, value: 0 };
+    // Only issued POs are drawn as bars — the draft tally is a separate figure
+    // beside the year, not part of the monthly activity.
+    point.issued += 1;
+    const bucket = point.months[poDate.getMonth()];
     bucket.count += 1;
     bucket.value += Number(po.grand_total);
-    countsByFiscalYear.set(po.fiscal_year, bucket);
+    point.value += Number(po.grand_total);
   }
-  const yearlyData: YearlyDataPoint[] = [...countsByFiscalYear.entries()]
-    .map(([fiscalYear, bucket]) => ({ fiscalYear, ...bucket }))
-    .sort((a, b) => a.fiscalYear.localeCompare(b.fiscalYear));
+  const yearlyData: YearPoint[] = [...yearPoints.values()].sort((a, b) => a.year - b.year);
 
   return (
     <div>
@@ -154,7 +177,7 @@ export default async function DashboardPage({
       </div>
 
       <div className="mb-6">
-        <YearlyPoChart data={yearlyData} />
+        <PoActivityChart data={yearlyData} />
       </div>
 
       <div className="card overflow-hidden">
