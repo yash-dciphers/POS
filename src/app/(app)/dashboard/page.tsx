@@ -7,7 +7,7 @@ import RenewalAlerts, { type RenewalItem } from '@/components/RenewalAlerts';
 import PendingApprovalAlert, { type PendingApprovalItem } from '@/components/PendingApprovalAlert';
 import AdminPasswordReminder from '@/components/AdminPasswordReminder';
 import ExportExcelButton from '@/components/ExportExcelButton';
-import MonthlyPoChart, { type MonthlyDataPoint } from '@/components/MonthlyPoChart';
+import YearlyPoChart, { type YearlyDataPoint } from '@/components/YearlyPoChart';
 import { notifyUsersOfUrgentRenewals } from '@/lib/renewal-notifications';
 
 export default async function DashboardPage({
@@ -25,7 +25,7 @@ export default async function DashboardPage({
     sql`select renewal_window_days, renewal_urgent_days from companies where id = ${user.company_id} limit 1`,
     sql`
       select
-        p.id, p.po_number, p.po_date, p.subtotal, p.grand_total, p.status, p.created_by,
+        p.id, p.po_number, p.po_date, p.fiscal_year, p.subtotal, p.grand_total, p.status, p.created_by,
         jsonb_build_object('name', v.name) as vendors
       from purchase_orders p
       join vendors v on v.id = p.vendor_id
@@ -123,23 +123,21 @@ export default async function DashboardPage({
     console.error('Urgent renewal notification failed', error);
   }
 
-  // Last 6 months, oldest to newest, counting issued POs by po_date. Built
-  // from `all` (already fetched above) rather than a separate query.
-  const monthlyData: MonthlyDataPoint[] = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(1); // avoid month-length rollover issues when subtracting months
-    d.setMonth(d.getMonth() - (5 - i));
-    const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
-    const inMonth = all.filter((po: any) => {
-      const poDate = new Date(po.po_date);
-      return `${poDate.getFullYear()}-${poDate.getMonth()}` === monthKey && po.status === 'issued';
-    });
-    return {
-      label: d.toLocaleDateString('en-IN', { month: 'short' }),
-      count: inMonth.length,
-      value: inMonth.reduce((sum: number, p: any) => sum + Number(p.grand_total), 0),
-    };
-  });
+  // Issued POs grouped by fiscal year, oldest first. Built from `all` (already
+  // fetched above) rather than a separate query. Grouping on the fiscal_year
+  // column rather than on po_date keeps the chart agreeing with the PO numbers
+  // themselves — that column is what the numbering series is keyed on.
+  const countsByFiscalYear = new Map<string, { count: number; value: number }>();
+  for (const po of all as any[]) {
+    if (po.status !== 'issued') continue;
+    const bucket = countsByFiscalYear.get(po.fiscal_year) ?? { count: 0, value: 0 };
+    bucket.count += 1;
+    bucket.value += Number(po.grand_total);
+    countsByFiscalYear.set(po.fiscal_year, bucket);
+  }
+  const yearlyData: YearlyDataPoint[] = [...countsByFiscalYear.entries()]
+    .map(([fiscalYear, bucket]) => ({ fiscalYear, ...bucket }))
+    .sort((a, b) => a.fiscalYear.localeCompare(b.fiscalYear));
 
   return (
     <div>
@@ -156,7 +154,7 @@ export default async function DashboardPage({
       </div>
 
       <div className="mb-6">
-        <MonthlyPoChart data={monthlyData} />
+        <YearlyPoChart data={yearlyData} />
       </div>
 
       <div className="card overflow-hidden">
